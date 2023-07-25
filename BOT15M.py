@@ -5,7 +5,7 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
 # Replace 'YOUR_SLACK_API_TOKEN' with your actual Slack API token
-slack_token = 'xoxb-5647333108224-5616980347222-aJ4wmJHCJgHYHwKdQKRrdyty'
+slack_token = 'xoxb-5647333108224-5616980347222-9QSYS2gsRNrJsyGZA80nFIRo'
 slack_client = WebClient(token=slack_token)
 
 # Dictionary to store the last closing price for each pair
@@ -60,7 +60,7 @@ def get_price(pair):
         return
     
     url = f'https://api.binance.com/api/v3/klines'
-    params = {'symbol': pair, 'interval': '15m', 'limit': 2}
+    params = {'symbol': pair, 'interval': '5m', 'limit': 2}
     response = requests.get(url, params=params)
     
     if response.status_code == 200:
