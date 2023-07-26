@@ -5,7 +5,7 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
 # Replace 'YOUR_SLACK_API_TOKEN' with your actual Slack API token
-slack_token = 'xoxb-5647333108224-5616980347222-u3z6giRvmvxSk4KJgDVfhGQw'
+slack_token = 'YOUR_SLACK_API_TOKEN'
 slack_client = WebClient(token=slack_token)
 
 # Dictionary to store the last closing price for each pair
@@ -63,8 +63,8 @@ def send_slack_notification(channel, alert_type, pair, *args):
 
 
 def get_price(pair):
-    blacklist = ['STORMUSDT', 'USTUSDT', 'XRPUPUSDT', 'XRPDOWNUSDT', 'LENDUSDT',
-                 'NEBLUSDT', 'TORNUSDT', 'XTZUPUSDT', 'MFTUSDT', 'BCHSVUSDT', 'BNBBEARUSDT', 'MITHUSDT', 'BNBBULLUSDT', 'AUDUSDT', 'AIONUSDT',
+    blacklist = ['STORMUSDT', 'USTUSDT', 'XRPUPUSDT', 'XRPDOWNUSDT', 'LENDUSDT', 'ERDUSDT', 'TCTUSDT', 'SXPUPUSDT','POLYUSDT','ANCUSDT', 'NANOUSDT', 'AAVEUPUSDT', 'RAMPUSDT', 'XZCUSDT', 'DNTUSDT'
+                 'NEBLUSDT', 'TORNUSDT', 'XTZUPUSDT', 'MFTUSDT', 'BCHSVUSDT', 'BNBBEARUSDT', 'MITHUSDT', 'BNBBULLUSDT', 'AUDUSDT', 'AIONUSDT','BULLUSDT', 'EOSBULLUSDT'
                  'BEARUSDT', 'ETHBEARUSDT', 'NUUSDT', 'LINKDOWNUSDT', 'LINKUPUSDT', 'COCOSUSDT', 'EOSBEARUSDT', 'XRPBEARUSDT', 'FTTUSDT', 'BTTUSDT', 'ETHBEARUSDT']  # Add coins to the blacklist
 
     if pair in blacklist:
@@ -129,7 +129,7 @@ if __name__ == "__main__":
     # Calculate the delay time until the next 15-minute candle closes
     current_time = datetime.utcnow()
     next_scheduled_time = current_time + \
-        timedelta(minutes=5) - timedelta(minutes=current_time.minute % 5)
+        timedelta(minutes=15) - timedelta(minutes=current_time.minute % 15)
     delay_seconds = (next_scheduled_time - current_time).total_seconds()
     time.sleep(delay_seconds)
 
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     while True:
         current_time = datetime.utcnow()
         next_scheduled_time = current_time + \
-            timedelta(minutes=5) - timedelta(minutes=current_time.minute % 5)
+            timedelta(minutes=15) - timedelta(minutes=current_time.minute % 15)
         delay_seconds = (next_scheduled_time - current_time).total_seconds()
         time.sleep(delay_seconds)
 
