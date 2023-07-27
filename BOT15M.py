@@ -4,6 +4,10 @@ from datetime import datetime, timedelta
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 import configparser
+import pandas as pd
+from ta.momentum import RSIIndicator
+from ta.trend import MACD
+
 
 # Load configuration from config.ini
 config = configparser.ConfigParser()
@@ -13,6 +17,9 @@ interval_minutes = int(config['Schedule']['interval_minutes'])
 
 # Binance configuration
 klines_interval = config['Binance']['klines_interval']
+rsi_period = int(config['Strategy']['rsi_period'])
+ema_short_period = int(config['Strategy']['ema_short_period'])
+ema_long_period = int(config['Strategy']['ema_long_period'])
 
 # Replace 'YOUR_SLACK_API_TOKEN' with your actual Slack API token
 slack_token = config['Slack']['slack_token']
@@ -62,6 +69,13 @@ def send_slack_notification(channel, alert_type, pair, *args):
         percentage_change = (
             (float(current_volume) - float(previous_volume)) / float(previous_volume)) * 100
         message = f"ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
+    elif alert_type == "BUY_SIGNAL":
+        rsi, macd = args
+        message = f"BUY SIGNAL: {pair} - RSI: {rsi:.2f}, MACD: {macd:.8f}"
+    elif alert_type == "SELL_SIGNAL":
+        rsi, macd = args
+        message = f"SELL SIGNAL: {pair} - RSI: {rsi:.2f}, MACD: {macd:.8f}"
+
     try:
         response = slack_client.chat_postMessage(channel=channel, text=message)
         assert response["message"]["text"] == message
@@ -73,12 +87,9 @@ def send_slack_notification(channel, alert_type, pair, *args):
 
 
 def get_price(pair):
-    blacklist = ['STORMUSDT', 'USTUSDT', 'XRPUPUSDT', 'XRPDOWNUSDT', 'LENDUSDT', 'ERDUSDT', 'TCTUSDT', 'SXPUPUSDT','POLYUSDT','ANCUSDT', 'NANOUSDT', 'AAVEUPUSDT', 'XLMUPUSDT', 'BZRXUSDT'
-                 'RAMPUSDT', 'XZCUSDT', 'DNTUSDT', 'BEARUSDT', 'UNIDOWNUSDT', 'NEBLUSDT', 'EOSBULLUSDT', 'BZRXUSDT', 'FILDOWNUSDT','XLMUPUSDT','BTTCUSDT', 'FILDOWNUSDT', 'SUSHIUPUSDT'
-                 'NEBLUSDT', 'TORNUSDT', 'XTZUPUSDT', 'MFTUSDT', 'BCHSVUSDT', 'BNBBEARUSDT', 'MITHUSDT', 'BNBBULLUSDT', 'AUDUSDT', 'AIONUSDT','BULLUSDT', 'EOSBULLUSDT', 'BCHDOWNUSDT'
-                 'BEARUSDT', 'ETHBEARUSDT', 'NUUSDT', 'LINKDOWNUSDT', 'LINKUPUSDT', 'COCOSUSDT', 'EOSBEARUSDT', 'XRPBEARUSDT', 'FTTUSDT', 'BTTUSDT', 'ETHBEARUSDT']  # Add coins to the blacklist
+    blacklisted_pairs = [pair.strip() for pair in config['Blacklist']['blacklisted_pairs'].split(',')]
 
-    if pair in blacklist:
+    if pair in blacklisted_pairs:
         return
 
     url = f'https://api.binance.com/api/v3/klines'
@@ -97,6 +108,18 @@ def get_price(pair):
         close_price_str = f"{close_price:.8f}".rstrip("0").rstrip(".")
         volume_str = f"{current_volume:.2f}".rstrip("0").rstrip(".")
 
+        # Convert data to DataFrame with appropriate data types
+        df = pd.DataFrame(data, columns=["timestamp", "open", "high", "low", "close", "volume", "close_time", "quote_asset_volume", "number_of_trades", "taker_buy_base_asset_volume", "taker_buy_quote_asset_volume", "ignore"])
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+        df["open"] = df["open"].astype(float)
+        df["high"] = df["high"].astype(float)
+        df["low"] = df["low"].astype(float)
+        df["close"] = df["close"].astype(float)
+        df["volume"] = pd.to_numeric(df["volume"])
+
+        rsi_val = RSIIndicator(df["close"], rsi_period).rsi().iloc[-1]
+        macd_val = MACD(df["close"], window_slow=ema_long_period, window_fast=ema_short_period).macd().iloc[-1]
+
         percentage_change = ((close_price - open_price) / open_price) * 100
         if abs(percentage_change) > 5.0:
             send_slack_notification(
@@ -107,6 +130,13 @@ def get_price(pair):
                 "#volume_up", "VOLUME_UP", pair, volume_str, f"{previous_volume:.2f}")
 
         print(f"{pair} - 15M : Close Price: {close_price_str}, Open Price: {open_price_str}, Volume: {volume_str}")
+       
+         # Check for Buy and Sell signals
+        if rsi_val < 30 and macd_val > 0:
+            send_slack_notification("#trading_signal", "BUY_SIGNAL", pair, rsi_val, macd_val)
+        elif rsi_val > 70 and macd_val < 0:
+            send_slack_notification("#trading_signal", "SELL_SIGNAL", pair, rsi_val, macd_val)
+
         return percentage_change
     else:
         print(
