@@ -3,9 +3,19 @@ import time
 from datetime import datetime, timedelta
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
+import configparser
+
+# Load configuration from config.ini
+config = configparser.ConfigParser()
+config.read('config.ini')
+
+interval_minutes = int(config['Schedule']['interval_minutes'])
+
+# Binance configuration
+klines_interval = config['Binance']['klines_interval']
 
 # Replace 'YOUR_SLACK_API_TOKEN' with your actual Slack API token
-slack_token = 'YOUR_SLACK_API_TOKEN'
+slack_token = config['Slack']['slack_token']
 slack_client = WebClient(token=slack_token)
 
 # Dictionary to store the last closing price for each pair
@@ -72,7 +82,7 @@ def get_price(pair):
         return
 
     url = f'https://api.binance.com/api/v3/klines'
-    params = {'symbol': pair, 'interval': '15m', 'limit': 2}
+    params = {'symbol': pair, 'interval': klines_interval, 'limit': 2}
     response = requests.get(url, params=params)
 
     if response.status_code == 200:
@@ -107,10 +117,10 @@ def get_price(pair):
 def send_top_gainers_losers_to_slack(top_gainers, top_losers):
     message = "Top 5 Gainers:\n"
     for idx, (pair, percentage_change) in enumerate(top_gainers.items(), 1):
-        message += f"{idx}. {pair} - {percentage_change:.2f}%\n"
+        message += f"{idx}. {pair} || {percentage_change:.2f}%\n"
     message += "\nTop 5 Losers:\n"
     for idx, (pair, percentage_change) in enumerate(top_losers.items(), 1):
-        message += f"{idx}. {pair} - {percentage_change:.2f}%\n"
+        message += f"{idx}. {pair} || {percentage_change:.2f}%\n"
 
     try:
         response = slack_client.chat_postMessage(
@@ -130,7 +140,7 @@ if __name__ == "__main__":
     # Calculate the delay time until the next 15-minute candle closes
     current_time = datetime.utcnow()
     next_scheduled_time = current_time + \
-        timedelta(minutes=15) - timedelta(minutes=current_time.minute % 15)
+        timedelta(minutes=interval_minutes) - timedelta(minutes=current_time.minute % interval_minutes)
     delay_seconds = (next_scheduled_time - current_time).total_seconds()
     time.sleep(delay_seconds)
 
@@ -138,7 +148,7 @@ if __name__ == "__main__":
     while True:
         current_time = datetime.utcnow()
         next_scheduled_time = current_time + \
-            timedelta(minutes=15) - timedelta(minutes=current_time.minute % 15)
+            timedelta(minutes=interval_minutes) - timedelta(minutes=current_time.minute % interval_minutes)
         delay_seconds = (next_scheduled_time - current_time).total_seconds()
         time.sleep(delay_seconds)
 
