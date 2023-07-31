@@ -126,7 +126,7 @@ def get_price(pair):
         macd_val = MACD(df["close"], window_slow=ema_long_period, window_fast=ema_short_period).macd().iloc[-1]
 
         percentage_change = ((close_price - open_price) / open_price) * 100
-        if abs(percentage_change) > 5.0:
+        if abs(percentage_change) > 2.0:
             send_slack_notification(
                 "#break_out", "BREAK_OUT", pair, close_price_str, open_price_str)
 
@@ -141,9 +141,9 @@ def get_price(pair):
         print(f"{pair} - 15M : Close Price: {close_price_str}, Open Price: {open_price_str}, Volume: {volume_str}")
        
          # Check for Buy and Sell signals
-        if rsi_val < 30 and macd_val > 0:
+        if rsi_val < 20 :
             send_slack_notification("#trading_signal", "BUY_SIGNAL", pair, rsi_val, macd_val)
-        elif rsi_val > 70 and macd_val < 0:
+        elif rsi_val > 80:
             send_slack_notification("#trading_signal", "SELL_SIGNAL", pair, rsi_val, macd_val)
 
         return percentage_change
