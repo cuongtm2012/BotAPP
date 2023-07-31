@@ -69,6 +69,11 @@ def send_slack_notification(channel, alert_type, pair, *args):
         percentage_change = (
             (float(current_volume) - float(previous_volume)) / float(previous_volume)) * 100
         message = f"ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
+    elif alert_type == "VOLUME_UP_X10":
+        current_volume, previous_volume = args
+        percentage_change = (
+            (float(current_volume) - float(previous_volume)) / float(previous_volume)) * 100
+        message = f"<!here|here> ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
     elif alert_type == "BUY_SIGNAL":
         rsi, macd = args
         message = f"BUY SIGNAL: {pair} - RSI: {rsi:.2f}, MACD: {macd:.8f}"
@@ -128,6 +133,10 @@ def get_price(pair):
         if current_volume > previous_volume * 2.0 and previous_volume > 10000:
             send_slack_notification(
                 "#volume_up", "VOLUME_UP", pair, volume_str, f"{previous_volume:.2f}")
+        elif current_volume > previous_volume * 10.0 and previous_volume > 10000:
+            send_slack_notification(
+                "#volume_up", "VOLUME_UP_X10", pair, volume_str, f"{previous_volume:.2f}")
+        
 
         print(f"{pair} - 15M : Close Price: {close_price_str}, Open Price: {open_price_str}, Volume: {volume_str}")
        
