@@ -42,6 +42,11 @@ def get_usdt_pairs():
         usdt_pairs = [symbol['symbol']
                       for symbol in data['symbols'] if 'USDT' in symbol['symbol']]
 
+        excluded_pairs = [pair for pair in usdt_pairs if pair.endswith(
+            'UPUSDT') or pair.endswith('DOWNUSDT')]
+        usdt_pairs = [
+            pair for pair in usdt_pairs if pair not in excluded_pairs]
+
         return usdt_pairs, future_pairs
     else:
         print(f"Failed to fetch data. Status code: {response.status_code}")
@@ -76,10 +81,30 @@ def send_slack_notification(channel, alert_type, pair, *args):
         message = f"<!here|here> ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
     elif alert_type == "BUY_SIGNAL":
         rsi, macd = args
-        message = f"BUY SIGNAL: {pair} - RSI: {rsi:.2f}, MACD: {macd:.8f}"
+        try:
+            rsi_str = f"{rsi:.2f}"
+        except ValueError:
+            rsi_str = "N/A"
+
+        try:
+            macd_str = f"{macd:.8f}"
+        except ValueError:
+            macd_str = "N/A"
+
+        message = f"BUY SIGNAL: {pair} - RSI: {rsi_str}, MACD: {macd_str}"
     elif alert_type == "SELL_SIGNAL":
         rsi, macd = args
-        message = f"SELL SIGNAL: {pair} - RSI: {rsi:.2f}, MACD: {macd:.8f}"
+        try:
+            rsi_str = f"{rsi:.2f}"
+        except ValueError:
+            rsi_str = "N/A"
+
+        try:
+            macd_str = f"{macd:.8f}"
+        except ValueError:
+            macd_str = "N/A"
+
+        message = f"SELL SIGNAL: {pair} - RSI: {rsi_str}, MACD: {macd_str}"
 
     try:
         response = slack_client.chat_postMessage(channel=channel, text=message)
@@ -97,8 +122,8 @@ def get_price(pair):
     if pair in blacklisted_pairs:
         return
 
-    url = f'https://api.binance.com/api/v3/klines'
-    params = {'symbol': pair, 'interval': klines_interval, 'limit': 2}
+    url = 'https://fapi.binance.com/fapi/v1/klines'
+    params = {'symbol': pair, 'interval': klines_interval, 'limit': 100}
     response = requests.get(url, params=params)
 
     if response.status_code == 200:
@@ -114,7 +139,8 @@ def get_price(pair):
         volume_str = f"{current_volume:.2f}".rstrip("0").rstrip(".")
 
         # Convert data to DataFrame with appropriate data types
-        df = pd.DataFrame(data, columns=["timestamp", "open", "high", "low", "close", "volume", "close_time", "quote_asset_volume", "number_of_trades", "taker_buy_base_asset_volume", "taker_buy_quote_asset_volume", "ignore"])
+        df = pd.DataFrame(data, columns=["timestamp", "open", "high", "low", "close", "volume", "close_time",
+                          "quote_asset_volume", "number_of_trades", "taker_buy_base_asset_volume", "taker_buy_quote_asset_volume", "ignore"])
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
         df["open"] = df["open"].astype(float)
         df["high"] = df["high"].astype(float)
@@ -122,8 +148,19 @@ def get_price(pair):
         df["close"] = df["close"].astype(float)
         df["volume"] = pd.to_numeric(df["volume"])
 
-        rsi_val = RSIIndicator(df["close"], rsi_period).rsi().iloc[-1]
-        macd_val = MACD(df["close"], window_slow=ema_long_period, window_fast=ema_short_period).macd().iloc[-1]
+        # Extract the relevant OHLCV data from the API response
+        ohlcv_data = [[float(entry[1]), float(entry[4]),
+                       float(entry[5])] for entry in data]
+        ohlcv_df = pd.DataFrame(ohlcv_data, columns=[
+                                "open", "close", "volume"])
+
+        # Calculate RSI and MACD using the historical data
+        rsi_val = RSIIndicator(ohlcv_df["close"], rsi_period).rsi().iloc[-1]
+        macd_val = MACD(ohlcv_df["close"], window_slow=ema_long_period,
+                        window_fast=ema_short_period).macd().iloc[-1]
+
+        if pd.notna(rsi_val) and pd.notna(macd_val):  # Check if RSI and MACD values are valid
+            print(f"RSI Value: {rsi_val:.2f}, MACD Value: {macd_val:.8f}")
 
         percentage_change = ((close_price - open_price) / open_price) * 100
         if abs(percentage_change) > 2.0:
