@@ -148,20 +148,6 @@ def get_price(pair):
         df["close"] = df["close"].astype(float)
         df["volume"] = pd.to_numeric(df["volume"])
 
-        # Extract the relevant OHLCV data from the API response
-        ohlcv_data = [[float(entry[1]), float(entry[4]),
-                       float(entry[5])] for entry in data]
-        ohlcv_df = pd.DataFrame(ohlcv_data, columns=[
-                                "open", "close", "volume"])
-
-        # Calculate RSI and MACD using the historical data
-        rsi_val = RSIIndicator(ohlcv_df["close"], rsi_period).rsi().iloc[-1]
-        macd_val = MACD(ohlcv_df["close"], window_slow=ema_long_period,
-                        window_fast=ema_short_period).macd().iloc[-1]
-
-        if pd.notna(rsi_val) and pd.notna(macd_val):  # Check if RSI and MACD values are valid
-            print(f"RSI Value: {rsi_val:.2f}, MACD Value: {macd_val:.8f}")
-
         percentage_change = ((close_price - open_price) / open_price) * 100
         if abs(percentage_change) > 2.0:
             send_slack_notification(
@@ -177,11 +163,16 @@ def get_price(pair):
 
         print(f"{pair} - 15M : Close Price: {close_price_str}, Open Price: {open_price_str}, Volume: {volume_str}")
        
-         # Check for Buy and Sell signals
-        if rsi_val < 20 :
-            send_slack_notification("#trading_signal", "BUY_SIGNAL", pair, rsi_val, macd_val)
-        elif rsi_val > 80:
-            send_slack_notification("#trading_signal", "SELL_SIGNAL", pair, rsi_val, macd_val)
+       
+        # Calculate EMA12 and EMA26
+        ema12 = df["close"].ewm(span=12, adjust=False).mean()
+        ema26 = df["close"].ewm(span=26, adjust=False).mean()
+
+        # Check EMA crossover strategy
+        if ema12.iloc[-1] > ema26.iloc[-1] and ema12.iloc[-2] <= ema26.iloc[-2]:
+            send_slack_notification("#trading_signal", "BUY_SIGNAL", pair, "", "")
+        elif ema12.iloc[-1] < ema26.iloc[-1] and ema12.iloc[-2] >= ema26.iloc[-2]:
+            send_slack_notification("#trading_signal", "SELL_SIGNAL", pair, "", "")
 
         return percentage_change
     else:
