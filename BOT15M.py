@@ -80,31 +80,9 @@ def send_slack_notification(channel, alert_type, pair, *args):
             (float(current_volume) - float(previous_volume)) / float(previous_volume)) * 100
         message = f"<!here|here> ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
     elif alert_type == "BUY_SIGNAL":
-        rsi, macd = args
-        try:
-            rsi_str = f"{rsi:.2f}"
-        except ValueError:
-            rsi_str = "N/A"
-
-        try:
-            macd_str = f"{macd:.8f}"
-        except ValueError:
-            macd_str = "N/A"
-
-        message = f"BUY SIGNAL: {pair} - RSI: {rsi_str}, MACD: {macd_str}"
+        message = f"BUY SIGNAL 15M: {pair} - EMA12 crossover EMA26"
     elif alert_type == "SELL_SIGNAL":
-        rsi, macd = args
-        try:
-            rsi_str = f"{rsi:.2f}"
-        except ValueError:
-            rsi_str = "N/A"
-
-        try:
-            macd_str = f"{macd:.8f}"
-        except ValueError:
-            macd_str = "N/A"
-
-        message = f"SELL SIGNAL: {pair} - RSI: {rsi_str}, MACD: {macd_str}"
+        message = f"SELL SIGNAL 15M: {pair} - EMA12 crossover EMA26"
 
     try:
         response = slack_client.chat_postMessage(channel=channel, text=message)
@@ -156,7 +134,7 @@ def get_price(pair):
         if current_volume > previous_volume * 2.0 and previous_volume > 10000:
             send_slack_notification(
                 "#volume_up", "VOLUME_UP", pair, volume_str, f"{previous_volume:.2f}")
-        elif current_volume > previous_volume * 10.0 and previous_volume > 10000:
+        elif current_volume > previous_volume * 5.0 and previous_volume > 10000:
             send_slack_notification(
                 "#volume_up", "VOLUME_UP_X10", pair, volume_str, f"{previous_volume:.2f}")
         
