@@ -57,7 +57,7 @@ def get_usdt_pairs():
 # Function to send a notification to the Slack channel
 
 
-def send_slack_notification(channel, alert_type, pair, *args):
+def send_slack_notification(channel, alert_type, timeframe, pair, *args):
 
     # Trim trailing zeros from price and volume values
     args = [f"{arg:.8f}".rstrip("0").rstrip(".") if isinstance(
@@ -79,9 +79,15 @@ def send_slack_notification(channel, alert_type, pair, *args):
             (float(current_volume) - float(previous_volume)) / float(previous_volume)) * 100
         message = f"<!here|here> ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
     elif alert_type == "BUY_SIGNAL":
-        message = f"BUY SIGNAL 4H: {pair} - EMA12 crossover EMA26"
+        if timeframe == "4H":
+            message = f"BUY SIGNAL 4H: {pair} - EMA12 crossover EMA26"
+        elif timeframe == "15M":
+            message = f"BUY SIGNAL 15M: {pair} - EMA12 crossover EMA26"
     elif alert_type == "SELL_SIGNAL":
-        message = f"SELL SIGNAL 4H: {pair} - EMA12 crossover EMA26"
+        if timeframe == "4H":
+            message = f"SELL SIGNAL 4H: {pair} - EMA12 crossover EMA26"
+        elif timeframe == "15M":
+            message = f"SELL SIGNAL 15M: {pair} - EMA12 crossover EMA26"
 
     try:
         response = slack_client.chat_postMessage(channel=channel, text=message)
@@ -128,28 +134,36 @@ def get_price(pair):
         percentage_change = ((close_price - open_price) / open_price) * 100
         if abs(percentage_change) > 2.0:
             send_slack_notification(
-                "#break_out", "BREAK_OUT", pair, close_price_str, open_price_str)
+                "#break_out", "BREAK_OUT", "", pair, close_price_str, open_price_str)
 
         if current_volume > previous_volume * 2.0 and previous_volume > 10000:
             send_slack_notification(
-                "#volume_up", "VOLUME_UP", pair, volume_str, f"{previous_volume:.2f}")
+                "#volume_up", "VOLUME_UP", "", pair, volume_str, f"{previous_volume:.2f}")
         elif current_volume > previous_volume * 5.0 and previous_volume > 10000:
             send_slack_notification(
-                "#volume_up", "VOLUME_UP_X10", pair, volume_str, f"{previous_volume:.2f}")
+                "#volume_up", "VOLUME_UP_X10", "", pair, volume_str, f"{previous_volume:.2f}")
         
 
         print(f"{pair} - 15M : Close Price: {close_price_str}, Open Price: {open_price_str}, Volume: {volume_str}")
        
-       
-        # Calculate EMA12 and EMA26
-        ema12 = df["close"].ewm(span=12, adjust=False).mean()
-        ema26 = df["close"].ewm(span=26, adjust=False).mean()
+       # Calculate EMA12 and EMA26 for 4-hour timeframe
+        ema12 = df["close"].ewm(span=12*4, adjust=False).mean()
+        ema26 = df["close"].ewm(span=26*4, adjust=False).mean()
 
-        # Check EMA crossover strategy
+        # Check EMA crossover strategy for 4-hour timeframe
         if ema12.iloc[-1] > ema26.iloc[-1] and ema12.iloc[-2] <= ema26.iloc[-2]:
-            send_slack_notification("#trading_signal", "BUY_SIGNAL", pair, "", "")
+            # Check EMA crossovers on 15-minute timeframe
+            ema12_15m = df["close"].ewm(span=12, adjust=False).mean()
+            ema26_15m = df["close"].ewm(span=26, adjust=False).mean()
+            if ema12_15m.iloc[-1] > ema26_15m.iloc[-1] and ema12_15m.iloc[-2] <= ema26_15m.iloc[-2]:
+                send_slack_notification("#trading_signal", "BUY_SIGNAL", "15M", pair, "", "")
+
         elif ema12.iloc[-1] < ema26.iloc[-1] and ema12.iloc[-2] >= ema26.iloc[-2]:
-            send_slack_notification("#trading_signal", "SELL_SIGNAL", pair, "", "")
+            # Check EMA crossovers on 15-minute timeframe
+            ema12_15m = df["close"].ewm(span=12, adjust=False).mean()
+            ema26_15m = df["close"].ewm(span=26, adjust=False).mean()
+            if ema12_15m.iloc[-1] < ema26_15m.iloc[-1] and ema12_15m.iloc[-2] >= ema26_15m.iloc[-2]:
+                send_slack_notification("#trading_signal", "SELL_SIGNAL", "15M", pair, "", "")
 
         return percentage_change
     else:
@@ -187,9 +201,9 @@ def get_price_4H(pair):
 
         # Check EMA crossover strategy
         if ema12.iloc[-1] > ema26.iloc[-1] and ema12.iloc[-2] <= ema26.iloc[-2]:
-            send_slack_notification("#trading_signal", "BUY_SIGNAL", pair, "", "")
+            send_slack_notification("#trading_signal", "BUY_SIGNAL", "4H", pair, "", "")
         elif ema12.iloc[-1] < ema26.iloc[-1] and ema12.iloc[-2] >= ema26.iloc[-2]:
-            send_slack_notification("#trading_signal", "SELL_SIGNAL", pair, "", "")
+            send_slack_notification("#trading_signal", "SELL_SIGNAL", "4H", pair, "", "")
 
     else:
         print(
