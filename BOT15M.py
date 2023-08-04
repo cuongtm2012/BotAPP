@@ -13,10 +13,12 @@ from ta.trend import MACD
 config = configparser.ConfigParser()
 config.read('config.ini')
 
-interval_minutes = int(config['Schedule']['interval_minutes'])
+interval_15M = int(config['Schedule']['interval_15M'])
+interval_4H = int(config['Schedule']['interval_4H'])
 
 # Binance configuration
-klines_interval = config['Binance']['klines_interval']
+klines_interval_15M = config['Binance']['klines_interval_15M']
+klines_interval_4H = config['Binance']['klines_interval_4H']
 rsi_period = int(config['Strategy']['rsi_period'])
 ema_short_period = int(config['Strategy']['ema_short_period'])
 ema_long_period = int(config['Strategy']['ema_long_period'])
@@ -56,9 +58,6 @@ def get_usdt_pairs():
 
 
 def send_slack_notification(channel, alert_type, pair, *args):
-    is_future = future_pairs.get(pair, False)
-    if is_future:
-        pair += " (Futures)"
 
     # Trim trailing zeros from price and volume values
     args = [f"{arg:.8f}".rstrip("0").rstrip(".") if isinstance(
@@ -80,9 +79,9 @@ def send_slack_notification(channel, alert_type, pair, *args):
             (float(current_volume) - float(previous_volume)) / float(previous_volume)) * 100
         message = f"<!here|here> ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
     elif alert_type == "BUY_SIGNAL":
-        message = f"BUY SIGNAL 15M: {pair} - EMA12 crossover EMA26"
+        message = f"BUY SIGNAL 4H: {pair} - EMA12 crossover EMA26"
     elif alert_type == "SELL_SIGNAL":
-        message = f"SELL SIGNAL 15M: {pair} - EMA12 crossover EMA26"
+        message = f"SELL SIGNAL 4H: {pair} - EMA12 crossover EMA26"
 
     try:
         response = slack_client.chat_postMessage(channel=channel, text=message)
@@ -101,7 +100,7 @@ def get_price(pair):
         return
 
     url = 'https://fapi.binance.com/fapi/v1/klines'
-    params = {'symbol': pair, 'interval': klines_interval, 'limit': 100}
+    params = {'symbol': pair, 'interval': klines_interval_15M, 'limit': 100}
     response = requests.get(url, params=params)
 
     if response.status_code == 200:
@@ -157,6 +156,45 @@ def get_price(pair):
         print(
             f"Failed to fetch data for {pair}. Status code: {response.status_code}")
         return 0
+    
+
+def get_price_4H(pair):
+    blacklisted_pairs = [pair.strip() for pair in config['Blacklist']['blacklisted_pairs'].split(',')]
+
+    if pair in blacklisted_pairs:
+        return
+
+    url = 'https://fapi.binance.com/fapi/v1/klines'
+    params = {'symbol': pair, 'interval': klines_interval_4H, 'limit': 100}
+    response = requests.get(url, params=params)
+
+    if response.status_code == 200:
+        data = response.json()
+
+        # Convert data to DataFrame with appropriate data types
+        df = pd.DataFrame(data, columns=["timestamp", "open", "high", "low", "close", "volume", "close_time",
+                          "quote_asset_volume", "number_of_trades", "taker_buy_base_asset_volume", "taker_buy_quote_asset_volume", "ignore"])
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+        df["open"] = df["open"].astype(float)
+        df["high"] = df["high"].astype(float)
+        df["low"] = df["low"].astype(float)
+        df["close"] = df["close"].astype(float)
+        df["volume"] = pd.to_numeric(df["volume"])
+       
+        # Calculate EMA12 and EMA26
+        ema12 = df["close"].ewm(span=12, adjust=False).mean()
+        ema26 = df["close"].ewm(span=26, adjust=False).mean()
+
+        # Check EMA crossover strategy
+        if ema12.iloc[-1] > ema26.iloc[-1] and ema12.iloc[-2] <= ema26.iloc[-2]:
+            send_slack_notification("#trading_signal", "BUY_SIGNAL", pair, "", "")
+        elif ema12.iloc[-1] < ema26.iloc[-1] and ema12.iloc[-2] >= ema26.iloc[-2]:
+            send_slack_notification("#trading_signal", "SELL_SIGNAL", pair, "", "")
+
+    else:
+        print(
+            f"Failed to fetch data for {pair}. Status code: {response.status_code}")
+        return 0
 
 
 def send_top_gainers_losers_to_slack(top_gainers, top_losers):
@@ -176,7 +214,7 @@ def send_top_gainers_losers_to_slack(top_gainers, top_losers):
         print(f"Failed to send top gainers and losers list to Slack: {e}")
 
 
-if __name__ == "__main__":
+def main_15m():
     # Task 1: Get the list of trading pairs with USDT as the quote currency
     usdt_pairs, future_pairs = get_usdt_pairs()
     print("List of trading pairs with USDT:")
@@ -185,7 +223,7 @@ if __name__ == "__main__":
     # Calculate the delay time until the next 15-minute candle closes
     current_time = datetime.utcnow()
     next_scheduled_time = current_time + \
-        timedelta(minutes=interval_minutes) - timedelta(minutes=current_time.minute % interval_minutes)
+        timedelta(minutes=interval_15M) - timedelta(minutes=current_time.minute % interval_15M)
     delay_seconds = (next_scheduled_time - current_time).total_seconds()
     time.sleep(delay_seconds)
 
@@ -193,7 +231,7 @@ if __name__ == "__main__":
     while True:
         current_time = datetime.utcnow()
         next_scheduled_time = current_time + \
-            timedelta(minutes=interval_minutes) - timedelta(minutes=current_time.minute % interval_minutes)
+            timedelta(minutes=interval_15M) - timedelta(minutes=current_time.minute % interval_15M)
         delay_seconds = (next_scheduled_time - current_time).total_seconds()
         time.sleep(delay_seconds)
 
@@ -216,3 +254,39 @@ if __name__ == "__main__":
             sorted(top_losers.items(), key=lambda item: item[1])[:5])
 
         send_top_gainers_losers_to_slack(top_gainers, top_losers)
+
+
+def main_4h():
+    # Task 1: Get the list of trading pairs with USDT as the quote currency
+    usdt_pairs = get_usdt_pairs()
+
+    # Calculate the delay time until the next 15-minute candle closes
+    current_time = datetime.utcnow()
+    next_scheduled_time = current_time + timedelta(hours=interval_4H - (current_time.hour % interval_4H)) - timedelta(minutes=current_time.minute)
+    delay_seconds = (next_scheduled_time - current_time).total_seconds()
+    time.sleep(delay_seconds)
+
+    # Task 2: Schedule price updates every 15 minutes for each pair
+    while True:
+        current_time = datetime.utcnow()
+        next_scheduled_time = current_time + \
+            timedelta(minutes=interval_4H) - timedelta(minutes=current_time.hour % interval_4H)
+        delay_seconds = (next_scheduled_time - current_time).total_seconds()
+        time.sleep(delay_seconds)
+        for pair in usdt_pairs:
+            get_price_4H(pair)
+
+if __name__ == "__main__":
+    import threading
+
+    # Create threads for both 15-minute and 1-hour schedules
+    thread_15m = threading.Thread(target=main_15m)
+    thread_1h = threading.Thread(target=main_4h)
+
+    # Start the threads
+    thread_15m.start()
+    thread_1h.start()
+
+    # Wait for both threads to finish
+    thread_15m.join()
+    thread_1h.join()
