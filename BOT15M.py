@@ -7,6 +7,8 @@ import configparser
 import pandas as pd
 from ta.momentum import RSIIndicator
 from ta.trend import MACD
+import hmac
+import hashlib
 
 
 # Load configuration from config.ini
@@ -26,6 +28,10 @@ ema_long_period = int(config['Strategy']['ema_long_period'])
 # Replace 'YOUR_SLACK_API_TOKEN' with your actual Slack API token
 slack_token = config['Slack']['slack_token']
 slack_client = WebClient(token=slack_token)
+
+# Replace 'YOUR_BINANCE_API_KEY' and 'YOUR_BINANCE_SECRET_KEY' with your actual API key and secret
+api_key = config['Binance']['YOUR_BINANCE_API_KEY']
+secret_key = config['Binance']['YOUR_BINANCE_SECRET_KEY']
 
 # Dictionary to store the last closing price for each pair
 last_closing_prices = {}
@@ -57,7 +63,7 @@ def get_usdt_pairs():
 # Function to send a notification to the Slack channel
 
 
-def send_slack_notification(channel, alert_type, timeframe, pair, *args):
+def send_slack_notification(channel, alert_type, pair, *args):
 
     # Trim trailing zeros from price and volume values
     args = [f"{arg:.8f}".rstrip("0").rstrip(".") if isinstance(
@@ -76,15 +82,9 @@ def send_slack_notification(channel, alert_type, timeframe, pair, *args):
             message = f"<!here|here> ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
         message = f"ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
     elif alert_type == "BUY_SIGNAL":
-        if timeframe == "4H":
-            message = f"BUY SIGNAL 4H: {pair} - EMA12 crossover EMA26"
-        elif timeframe == "15M":
-            message = f"BUY SIGNAL 15M: {pair} - EMA12 crossover EMA26"
+            message = f"+ BUY SIGNAL 4H: {pair} - EMA12 crossover EMA26"
     elif alert_type == "SELL_SIGNAL":
-        if timeframe == "4H":
-            message = f"SELL SIGNAL 4H: {pair} - EMA12 crossover EMA26"
-        elif timeframe == "15M":
-            message = f"SELL SIGNAL 15M: {pair} - EMA12 crossover EMA26"
+            message = f"- SELL SIGNAL 4H: {pair} - EMA12 crossover EMA26"
 
     try:
         response = slack_client.chat_postMessage(channel=channel, text=message)
@@ -95,7 +95,32 @@ def send_slack_notification(channel, alert_type, timeframe, pair, *args):
 
 # Function to fetch price for a specific pair
 
+def get_funding_rate(pair):
+    url = 'https://fapi.binance.com/fapi/v1/fundingRate'
+    params = {'symbol': pair}
 
+    # Add the 'timestamp' parameter for API security
+    timestamp = int(time.time() * 1000)
+    params['timestamp'] = timestamp
+
+    # Generate the signature using HMAC SHA256
+    signing_string = '&'.join([f"{key}={value}" for key, value in params.items()])
+    signature = hmac.new(secret_key.encode('utf-8'), signing_string.encode('utf-8'), hashlib.sha256).hexdigest()
+    params['signature'] = signature
+
+    # Add the API key to the headers
+    headers = {'X-MBX-APIKEY': api_key}
+
+    response = requests.get(url, params=params, headers=headers)
+
+    if response.status_code == 200:
+        data = response.json()
+        funding_rate = float(data['lastFundingRate'])
+        return funding_rate
+    else:
+        print(f"Failed to fetch funding rate for {pair}. Status code: {response.status_code}")
+        return 0
+    
 def get_price(pair):
     blacklisted_pairs = [pair.strip() for pair in config['Blacklist']['blacklisted_pairs'].split(',')]
 
@@ -133,31 +158,12 @@ def get_price(pair):
             send_slack_notification(
                 "#break_out", "BREAK_OUT", "", pair, close_price_str, open_price_str)
 
-        if current_volume > previous_volume * 4.0 and previous_volume > 10000:
+        if current_volume > previous_volume * 4.0 and previous_volume > 100000:
             send_slack_notification(
                 "#volume_up", "VOLUME_UP", "", pair, volume_str, f"{previous_volume:.2f}")
 
         print(f"{pair} - 15M : Close Price: {close_price_str}, Open Price: {open_price_str}, Volume: {volume_str}")
        
-       # Calculate EMA12 and EMA26 for 4-hour timeframe
-        ema12 = df["close"].ewm(span=12*4, adjust=False).mean()
-        ema26 = df["close"].ewm(span=26*4, adjust=False).mean()
-
-        # Check EMA crossover strategy for 4-hour timeframe
-        if ema12.iloc[-1] > ema26.iloc[-1] and ema12.iloc[-2] <= ema26.iloc[-2]:
-            # Check EMA crossovers on 15-minute timeframe
-            ema12_15m = df["close"].ewm(span=12, adjust=False).mean()
-            ema26_15m = df["close"].ewm(span=26, adjust=False).mean()
-            if ema12_15m.iloc[-1] > ema26_15m.iloc[-1] and ema12_15m.iloc[-2] <= ema26_15m.iloc[-2]:
-                send_slack_notification("#trading_signal", "BUY_SIGNAL", "15M", pair, "", "")
-
-        elif ema12.iloc[-1] < ema26.iloc[-1] and ema12.iloc[-2] >= ema26.iloc[-2]:
-            # Check EMA crossovers on 15-minute timeframe
-            ema12_15m = df["close"].ewm(span=12, adjust=False).mean()
-            ema26_15m = df["close"].ewm(span=26, adjust=False).mean()
-            if ema12_15m.iloc[-1] < ema26_15m.iloc[-1] and ema12_15m.iloc[-2] >= ema26_15m.iloc[-2]:
-                send_slack_notification("#trading_signal", "SELL_SIGNAL", "15M", pair, "", "")
-
         return percentage_change
     else:
         print(
@@ -194,9 +200,9 @@ def get_price_4H(pair):
 
         # Check EMA crossover strategy
         if ema12.iloc[-1] > ema26.iloc[-1] and ema12.iloc[-2] <= ema26.iloc[-2]:
-            send_slack_notification("#trading_signal", "BUY_SIGNAL", "4H", pair, "", "")
+            send_slack_notification("#trading_signal", "BUY_SIGNAL", pair, "", "")
         elif ema12.iloc[-1] < ema26.iloc[-1] and ema12.iloc[-2] >= ema26.iloc[-2]:
-            send_slack_notification("#trading_signal", "SELL_SIGNAL", "4H", pair, "", "")
+            send_slack_notification("#trading_signal", "SELL_SIGNAL", pair, "", "")
 
     else:
         print(
@@ -220,10 +226,22 @@ def send_top_gainers_losers_to_slack(top_gainers, top_losers):
     except SlackApiError as e:
         print(f"Failed to send top gainers and losers list to Slack: {e}")
 
+def send_top_funding_rates_to_slack(top_funding_rates):
+    message = "Top 5 Highest Funding Rates:\n"
+    for idx, (pair, funding_rate) in enumerate(top_funding_rates.items(), 1):
+        message += f"{idx}. {pair} || Funding Rate: {funding_rate:.8f}\n"
+
+    try:
+        response = slack_client.chat_postMessage(channel="#top5_gain_loss", text=message)
+        assert response["message"]["text"] == message
+        print("Top 5 highest funding rates sent successfully to Slack.")
+    except SlackApiError as e:
+        print(f"Failed to send top 5 highest funding rates to Slack: {e}")
+
 
 def main_15m():
     # Task 1: Get the list of trading pairs with USDT as the quote currency
-    usdt_pairs, future_pairs = get_usdt_pairs()
+    usdt_pairs = get_usdt_pairs()
     print("List of trading pairs with USDT:")
     print(usdt_pairs)
 
@@ -246,22 +264,29 @@ def main_15m():
             f"Updating prices at {current_time.strftime('%Y-%m-%d %H:%M:%S')} UTC")
         top_gainers = {}
         top_losers = {}
+        top_funding_rates = {}
         for pair in usdt_pairs:
-            percentage_change = get_price(pair)
+            percentage_change, funding_rate = get_price(pair)
             if percentage_change is not None:
                 if percentage_change > 0:
                     top_gainers[pair] = percentage_change
                 else:
                     top_losers[pair] = percentage_change
+            if funding_rate is not None:
+                    top_funding_rates[pair] = funding_rate
 
         # Sort the dictionaries to get the top 5 gainers and losers
         top_gainers = dict(
             sorted(top_gainers.items(), key=lambda item: item[1], reverse=True)[:5])
         top_losers = dict(
             sorted(top_losers.items(), key=lambda item: item[1])[:5])
+        
+         # Sort the dictionary to get the top 5 highest funding rates
+        top_funding_rates = dict(sorted(top_funding_rates.items(), key=lambda item: item[1], reverse=True)[:5])
 
         send_top_gainers_losers_to_slack(top_gainers, top_losers)
-
+        # Send the top 5 highest funding rates to Slack
+        send_top_funding_rates_to_slack(top_funding_rates)
 
 def main_4h():
     # Task 1: Get the list of trading pairs with USDT as the quote currency
@@ -288,12 +313,12 @@ if __name__ == "__main__":
 
     # Create threads for both 15-minute and 1-hour schedules
     thread_15m = threading.Thread(target=main_15m)
-    thread_1h = threading.Thread(target=main_4h)
+    thread_4h = threading.Thread(target=main_4h)
 
     # Start the threads
     thread_15m.start()
-    thread_1h.start()
+    thread_4h.start()
 
     # Wait for both threads to finish
     thread_15m.join()
-    thread_1h.join()
+    thread_4h.join()
