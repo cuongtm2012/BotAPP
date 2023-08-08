@@ -288,29 +288,34 @@ def main_15m(usdt_pairs):
 
             # Fetch top gainers and losers
             top_gainers, top_losers = get_top_gainers_losers()
-            if top_gainers is not None and top_losers is not None:
-                with ThreadPoolExecutor(max_workers=10) as executor:
-                    futures = []
-                    for pair in usdt_pairs:
-                        future = executor.submit(
-                            update_price_funding, pair, top_gainers, top_losers, top_funding_rates)
-                        futures.append(future)
+            if top_gainers is None or top_losers is None:
+                print("Error: get_top_gainers_losers returned None.")
+                continue
 
-                    for future in futures:
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                futures = []
+                for pair in usdt_pairs:
+                    future = executor.submit(
+                        update_price_funding, pair, top_gainers, top_losers, top_funding_rates)
+                    futures.append(future)
+
+                for future in futures:
+                    try:
                         future.result()  # Wait for the task to complete
+                    except Exception as e:
+                        print("Error in thread:", str(e))
 
-                send_top_gainers_losers_to_slack(top_gainers, top_losers)
+            send_top_gainers_losers_to_slack(top_gainers, top_losers)
 
-                top_funding_rates = dict(
-                    sorted(top_funding_rates.items(), key=lambda item: item[1], reverse=True)[:5])
-                send_top_funding_rates_to_slack(top_funding_rates)
+            top_funding_rates = dict(
+                sorted(top_funding_rates.items(), key=lambda item: item[1], reverse=True)[:5])
+            send_top_funding_rates_to_slack(top_funding_rates)
 
             # Sleep for 15 minutes
             time.sleep(900)
         except Exception as e:
             print("Exception in main_15m:", str(e))
             time.sleep(60)
-
 
 def main_4h(usdt_pairs):
     # Calculate the delay time until the next 4-hour candle closes
