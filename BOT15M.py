@@ -1,5 +1,6 @@
 import time
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 import configparser
@@ -98,27 +99,31 @@ def send_slack_notification(channel, alert_type, pair, *args):
 
 
 def get_funding_rate(pair):
-    url = 'https://fapi.binance.com/fapi/v1/fundingRate'
-    params = {'symbol': pair}
-    response = requests.get(url, params=params)
+    try:
+        url = 'https://fapi.binance.com/fapi/v1/fundingRate'
+        params = {'symbol': pair}
+        response = requests.get(url, params=params)
 
-    if response.status_code == 200:
-        data = response.json()
-        # Check the structure of the data
-        print(data)
+        if response.status_code == 200:
+            data = response.json()
+            # Check the structure of the data
+            print(data)
 
-        # Check if 'fundingRate' key is present and not None in the data
-        if 'fundingRate' in data and data['fundingRate'] is not None:
-            funding_rate = float(data['fundingRate'])
-            return funding_rate
+            # Check if 'fundingRate' key is present and not None in the data
+            if 'fundingRate' in data and data['fundingRate'] is not None:
+                funding_rate = float(data['fundingRate'])
+                return funding_rate
+            else:
+                # Handle the case when 'fundingRate' key is missing or None
+                print(
+                    f"Warning: 'fundingRate' key is missing or None in the data for {pair}.")
+                return 0.0  # Return a default value of 0.0 for funding rate
         else:
-            # Handle the case when 'fundingRate' key is missing or None
             print(
-                f"Warning: 'fundingRate' key is missing or None in the data for {pair}.")
-            return 0.0  # Return a default value of 0.0 for funding rate
-    else:
-        print(
-            f"Failed to fetch funding rate for {pair}. Status code: {response.status_code}")
+                f"Failed to fetch funding rate for {pair}. Status code: {response.status_code}")
+            return None
+    except Exception as e:
+        print(f"Error fetching funding rate for {pair}: {e}")
         return None
     
 
@@ -134,45 +139,49 @@ def get_price(pair):
     params = {'symbol': pair, 'interval': klines_interval_15M, 'limit': 100}
     response = requests.get(url, params=params)
 
-    if response.status_code == 200:
-        data = response.json()
-        # Check the structure of the data
-        print(data)  # Add this line to inspect the structure of the data
+    try:
+        if response.status_code == 200:
+            data = response.json()
+            # Check the structure of the data
+            print(data)  # Add this line to inspect the structure of the data
 
-        # Extract OHLCV data from the response
-        open_price = float(data[-1][1])
-        close_price = float(data[-1][4])
-        current_volume = float(data[-1][5])
-        previous_volume = float(data[-2][5])
+            # Extract OHLCV data from the response
+            open_price = float(data[-1][1])
+            close_price = float(data[-1][4])
+            current_volume = float(data[-1][5])
+            previous_volume = float(data[-2][5])
 
-        # Trim trailing zeros from price and volume
-        open_price_str = f"{open_price:.8f}".rstrip("0").rstrip(".")
-        close_price_str = f"{close_price:.8f}".rstrip("0").rstrip(".")
-        volume_str = f"{current_volume:.2f}".rstrip("0").rstrip(".")
+            # Trim trailing zeros from price and volume
+            open_price_str = f"{open_price:.8f}".rstrip("0").rstrip(".")
+            close_price_str = f"{close_price:.8f}".rstrip("0").rstrip(".")
+            volume_str = f"{current_volume:.2f}".rstrip("0").rstrip(".")
 
-        percentage_change = ((close_price - open_price) / open_price) * 100
-        if abs(percentage_change) > 2.0:
-            send_slack_notification(
-                "#break_out", "BREAK_OUT", "", pair, close_price_str, open_price_str)
+            percentage_change = ((close_price - open_price) / open_price) * 100
+            if abs(percentage_change) > 2.0:
+                send_slack_notification(
+                    "#break_out", "BREAK_OUT", "", pair, close_price_str, open_price_str)
 
-        if current_volume > previous_volume * 4.0 and previous_volume > 100000:
-            send_slack_notification(
-                "#volume_up", "VOLUME_UP", pair, volume_str, f"{previous_volume:.2f}")
+            if current_volume > previous_volume * 4.0 and previous_volume > 100000:
+                send_slack_notification(
+                    "#volume_up", "VOLUME_UP", pair, volume_str, f"{previous_volume:.2f}")
 
-        print(f"{pair} - 15M : Close Price: {close_price_str}, Open Price: {open_price_str}, Volume: {volume_str}")
+            print(f"{pair} - 15M : Close Price: {close_price_str}, Open Price: {open_price_str}, Volume: {volume_str}")
 
 
-        try:
-            funding_rate = get_funding_rate(pair)
-            # Do something with the funding_rate if needed
-        except Exception as e:
-            print(f"Error in get_funding_rate: {e}")
+            try:
+                funding_rate = get_funding_rate(pair)
+                # Do something with the funding_rate if needed
+            except Exception as e:
+                print(f"Error in get_funding_rate: {e}")
 
-        return percentage_change, funding_rate
-    else:
-        print(
-            f"Failed to fetch data for {pair}. Status code: {response.status_code}")
-        return percentage_change, None
+            return percentage_change, funding_rate
+        else:
+            print(
+                f"Failed to fetch data for {pair}. Status code: {response.status_code}")
+            return percentage_change, None
+    except Exception as e:
+        print(f"Error fetching price for {pair}: {e}")
+        return None, None
     
 
 def get_price_4H(pair):
@@ -282,18 +291,16 @@ def main_15m(usdt_pairs):
                 f"Updating prices at {time.strftime('%Y-%m-%d %H:%M:%S %Z', time.gmtime())}")
             top_gainers, top_losers = get_top_gainers_losers()
 
-            # Split the list of trading pairs into smaller chunks
-            chunked_pairs = list(chunks(usdt_pairs, 20))
-            for pairs_chunk in chunked_pairs:
-                threads = []
-                for pair in pairs_chunk:
-                    thread = threading.Thread(
-                        target=update_price_funding, args=(pair, top_gainers, top_losers, top_funding_rates))
-                    threads.append(thread)
-                    thread.start()
 
-                for thread in threads:
-                    thread.join()
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                futures = []
+                for pair in usdt_pairs:
+                    future = executor.submit(
+                        update_price_funding, pair, top_gainers, top_losers, top_funding_rates)
+                    futures.append(future)
+
+                for future in futures:
+                    future.result()  # Wait for the task to complete
 
             send_top_gainers_losers_to_slack(top_gainers, top_losers)
 
