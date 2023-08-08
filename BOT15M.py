@@ -1,4 +1,3 @@
-import requests
 import time
 from datetime import datetime, timedelta
 from slack_sdk import WebClient
@@ -9,6 +8,8 @@ from ta.momentum import RSIIndicator
 from ta.trend import MACD
 import hmac
 import hashlib
+import threading
+import requests
 
 
 # Load configuration from config.ini
@@ -95,36 +96,37 @@ def send_slack_notification(channel, alert_type, pair, *args):
 
 # Function to fetch price for a specific pair
 
+
 def get_funding_rate(pair):
     url = 'https://fapi.binance.com/fapi/v1/fundingRate'
     params = {'symbol': pair}
-
-    # Add the 'timestamp' parameter for API security
-    timestamp = int(time.time() * 1000)
-    params['timestamp'] = timestamp
-
-    # Generate the signature using HMAC SHA256
-    signing_string = '&'.join([f"{key}={value}" for key, value in params.items()])
-    signature = hmac.new(secret_key.encode('utf-8'), signing_string.encode('utf-8'), hashlib.sha256).hexdigest()
-    params['signature'] = signature
-
-    # Add the API key to the headers
-    headers = {'X-MBX-APIKEY': api_key}
-
-    response = requests.get(url, params=params, headers=headers)
+    response = requests.get(url, params=params)
 
     if response.status_code == 200:
         data = response.json()
-        funding_rate = float(data['lastFundingRate'])
-        return funding_rate
+        # Check the structure of the data
+        print(data)
+
+        # Check if 'lastFundingRate' key is present and not None in the data
+        if 'lastFundingRate' in data and data['lastFundingRate'] is not None:
+            funding_rate = float(data['lastFundingRate'])
+            return funding_rate
+        else:
+            # Handle the case when 'lastFundingRate' key is missing or None
+            print(
+                f"Warning: 'lastFundingRate' key is missing or None in the data for {pair}.")
+            return 0.0  # Return a default value of 0.0 for funding rate
     else:
-        print(f"Failed to fetch funding rate for {pair}. Status code: {response.status_code}")
-        return 0
+        print(
+            f"Failed to fetch funding rate for {pair}. Status code: {response.status_code}")
+        return None
     
+
 def get_price(pair):
     percentage_change = None  # Initialize percentage_change to None
-    blacklisted_pairs = [pair.strip() for pair in config['Blacklist']['blacklisted_pairs'].split(',')]
-
+    funding_rate = None  # Initialize funding_rate to None
+    blacklisted_pairs = [
+        pair.strip() for pair in config['Blacklist']['blacklisted_pairs'].split(',')]
     if pair in blacklisted_pairs:
         return
 
@@ -134,27 +136,19 @@ def get_price(pair):
 
     if response.status_code == 200:
         data = response.json()
-        funding_rate = float(data['fundingRate'])
+        # Check the structure of the data
+        print(data)  # Add this line to inspect the structure of the data
 
-        open_price = float(data[1][1])
-        close_price = float(data[1][4])
-        current_volume = float(data[1][5])
-        previous_volume = float(data[0][5])
+        # Extract OHLCV data from the response
+        open_price = float(data[-1][1])
+        close_price = float(data[-1][4])
+        current_volume = float(data[-1][5])
+        previous_volume = float(data[-2][5])
 
         # Trim trailing zeros from price and volume
         open_price_str = f"{open_price:.8f}".rstrip("0").rstrip(".")
         close_price_str = f"{close_price:.8f}".rstrip("0").rstrip(".")
         volume_str = f"{current_volume:.2f}".rstrip("0").rstrip(".")
-
-        # Convert data to DataFrame with appropriate data types
-        df = pd.DataFrame(data, columns=["timestamp", "open", "high", "low", "close", "volume", "close_time",
-                          "quote_asset_volume", "number_of_trades", "taker_buy_base_asset_volume", "taker_buy_quote_asset_volume", "ignore"])
-        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-        df["open"] = df["open"].astype(float)
-        df["high"] = df["high"].astype(float)
-        df["low"] = df["low"].astype(float)
-        df["close"] = df["close"].astype(float)
-        df["volume"] = pd.to_numeric(df["volume"])
 
         percentage_change = ((close_price - open_price) / open_price) * 100
         if abs(percentage_change) > 2.0:
@@ -163,10 +157,17 @@ def get_price(pair):
 
         if current_volume > previous_volume * 4.0 and previous_volume > 100000:
             send_slack_notification(
-                "#volume_up", "VOLUME_UP", "", pair, volume_str, f"{previous_volume:.2f}")
+                "#volume_up", "VOLUME_UP", pair, volume_str, f"{previous_volume:.2f}")
 
         print(f"{pair} - 15M : Close Price: {close_price_str}, Open Price: {open_price_str}, Volume: {volume_str}")
-       
+
+
+        try:
+            funding_rate = get_funding_rate(pair)
+            # Do something with the funding_rate if needed
+        except Exception as e:
+            print(f"Error in get_funding_rate: {e}")
+
         return percentage_change, funding_rate
     else:
         print(
@@ -241,82 +242,123 @@ def send_top_funding_rates_to_slack(top_funding_rates):
     except SlackApiError as e:
         print(f"Failed to send top 5 highest funding rates to Slack: {e}")
 
+# Function to get the top 5 gainers and losers
 
-def main_15m():
-    # Task 1: Get the list of trading pairs with USDT as the quote currency
-    usdt_pairs = get_usdt_pairs()
-    print("List of trading pairs with USDT:")
-    print(usdt_pairs)
 
-    # Calculate the delay time until the next 15-minute candle closes
+def get_top_gainers_losers():
+    top_gainers = {}  # Dictionary to store top gainers
+    top_losers = {}   # Dictionary to store top losers
+
+    for pair in usdt_pairs:
+        percentage_change, _ = get_price(pair)
+        if percentage_change is not None:
+            if percentage_change > 0:
+                top_gainers[pair] = percentage_change
+            else:
+                top_losers[pair] = percentage_change
+
+    # Sort the dictionaries by percentage change (absolute value)
+    top_gainers = dict(
+        sorted(top_gainers.items(), key=lambda item: abs(item[1]), reverse=True)[:5])
+    top_losers = dict(
+        sorted(top_losers.items(), key=lambda item: abs(item[1]), reverse=True)[:5])
+
+    return top_gainers, top_losers
+# Function to split list into chunk
+
+def chunks(lst, n):
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
+
+def main_15m(usdt_pairs):
+    top_gainers = {}  # Dictionary to store top gainers
+    top_losers = {}   # Dictionary to store top losers
+    top_funding_rates = {}  # Dictionary to store funding rates
+
+    while True:
+        try:
+            print(
+                f"Updating prices at {time.strftime('%Y-%m-%d %H:%M:%S %Z', time.gmtime())}")
+            top_gainers, top_losers = get_top_gainers_losers()
+
+            # Split the list of trading pairs into smaller chunks
+            chunked_pairs = list(chunks(usdt_pairs, 20))
+            for pairs_chunk in chunked_pairs:
+                threads = []
+                for pair in pairs_chunk:
+                    thread = threading.Thread(
+                        target=update_price_funding, args=(pair, top_gainers, top_losers, top_funding_rates))
+                    threads.append(thread)
+                    thread.start()
+
+                for thread in threads:
+                    thread.join()
+
+            send_top_gainers_losers_to_slack(top_gainers, top_losers)
+
+            top_funding_rates = dict(
+                sorted(top_funding_rates.items(), key=lambda item: item[1], reverse=True)[:5])
+            send_top_funding_rates_to_slack(top_funding_rates)
+
+            # Sleep for 15 minutes
+            time.sleep(900)
+        except Exception as e:
+            print("Exception in main_15m:", str(e))
+            time.sleep(60)
+
+
+def main_4h(usdt_pairs):
+    # Calculate the delay time until the next 4-hour candle closes
     current_time = datetime.utcnow()
-    next_scheduled_time = current_time + \
-        timedelta(minutes=interval_15M) - timedelta(minutes=current_time.minute % interval_15M)
+    next_scheduled_time = current_time + timedelta(hours=interval_4H - (
+        current_time.hour % interval_4H)) - timedelta(minutes=current_time.minute)
     delay_seconds = (next_scheduled_time - current_time).total_seconds()
     time.sleep(delay_seconds)
 
-    # Task 2: Schedule price updates every 15 minutes for each pair
     while True:
         current_time = datetime.utcnow()
         next_scheduled_time = current_time + \
-            timedelta(minutes=interval_15M) - timedelta(minutes=current_time.minute % interval_15M)
+            timedelta(minutes=interval_4H) - \
+            timedelta(minutes=current_time.hour % interval_4H)
         delay_seconds = (next_scheduled_time - current_time).total_seconds()
         time.sleep(delay_seconds)
 
-        print(
-            f"Updating prices at {current_time.strftime('%Y-%m-%d %H:%M:%S')} UTC")
-        top_gainers = {}
-        top_losers = {}
-        top_funding_rates = {}
-        for pair in usdt_pairs:
-            percentage_change, funding_rate = get_price(pair)
-            if percentage_change is not None:
-                if percentage_change > 0:
-                    top_gainers[pair] = percentage_change
-                else:
-                    top_losers[pair] = percentage_change
-            if funding_rate is not None:
-                    top_funding_rates[pair] = funding_rate
-
-        # Sort the dictionaries to get the top 5 gainers and losers
-        top_gainers = dict(
-            sorted(top_gainers.items(), key=lambda item: item[1], reverse=True)[:5])
-        top_losers = dict(
-            sorted(top_losers.items(), key=lambda item: item[1])[:5])
-        
-         # Sort the dictionary to get the top 5 highest funding rates
-        top_funding_rates = dict(sorted(top_funding_rates.items(), key=lambda item: item[1], reverse=True)[:5])
-
-        send_top_gainers_losers_to_slack(top_gainers, top_losers)
-        # Send the top 5 highest funding rates to Slack
-        send_top_funding_rates_to_slack(top_funding_rates)
-
-def main_4h():
-    # Task 1: Get the list of trading pairs with USDT as the quote currency
-    usdt_pairs = get_usdt_pairs()
-
-    # Calculate the delay time until the next 15-minute candle closes
-    current_time = datetime.utcnow()
-    next_scheduled_time = current_time + timedelta(hours=interval_4H - (current_time.hour % interval_4H)) - timedelta(minutes=current_time.minute)
-    delay_seconds = (next_scheduled_time - current_time).total_seconds()
-    time.sleep(delay_seconds)
-
-    # Task 2: Schedule price updates every 15 minutes for each pair
-    while True:
-        current_time = datetime.utcnow()
-        next_scheduled_time = current_time + \
-            timedelta(minutes=interval_4H) - timedelta(minutes=current_time.hour % interval_4H)
-        delay_seconds = (next_scheduled_time - current_time).total_seconds()
-        time.sleep(delay_seconds)
         for pair in usdt_pairs:
             get_price_4H(pair)
 
-if __name__ == "__main__":
-    import threading
+# Function to update price and funding rate for a single pair
+def update_price_funding(pair, top_gainers, top_losers, top_funding_rates):
+    try:
+        percentage_change, funding_rate = get_price(pair)
 
-    # Create threads for both 15-minute and 1-hour schedules
-    thread_15m = threading.Thread(target=main_15m)
-    thread_4h = threading.Thread(target=main_4h)
+        if percentage_change is not None:
+            if percentage_change > 0:
+                top_gainers[pair] = percentage_change
+            else:
+                top_losers[pair] = percentage_change
+
+        if funding_rate is not None:
+            top_funding_rates[pair] = funding_rate
+    except Exception as e:
+        print(f"Failed to fetch data for {pair}. {str(e)}")
+
+# Function to start the 15-minute schedule
+def start_15m_schedule(pairs):
+    main_15m(pairs)
+
+# Function to start the 4-hour schedule
+def start_4h_schedule(pairs):
+    main_4h(pairs)
+
+
+if __name__ == "__main__":
+    usdt_pairs, _ = get_usdt_pairs()
+
+    # Create threads for both 15-minute and 4-hour schedules
+    thread_15m = threading.Thread(
+        target=start_15m_schedule, args=(usdt_pairs,))
+    thread_4h = threading.Thread(target=start_4h_schedule, args=(usdt_pairs,))
 
     # Start the threads
     thread_15m.start()
