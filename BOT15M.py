@@ -100,7 +100,7 @@ def send_slack_notification(channel, alert_type, pair, *args):
 
 def get_funding_rate(pair):
     try:
-        url = 'https://fapi.binance.com/fapi/v1/fundingRate'
+        url = 'https://fapi.binance.com/fapi/v1/premiumIndex'
         params = {'symbol': pair}
         response = requests.get(url, params=params)
 
@@ -110,8 +110,8 @@ def get_funding_rate(pair):
             # print(data)
 
             # Check if 'fundingRate' key is present and not None in the data
-            if 'fundingRate' in data and data['fundingRate'] is not None:
-                funding_rate = float(data['fundingRate'])
+            if 'lastFundingRate' in data and data['lastFundingRate'] is not None:
+                funding_rate = float(data['lastFundingRate'])
                 return funding_rate
             else:
                 # Handle the case when 'fundingRate' key is missing or None
@@ -133,7 +133,8 @@ def get_price(pair):
     blacklisted_pairs = [
         pair.strip() for pair in config['Blacklist']['blacklisted_pairs'].split(',')]
     if pair in blacklisted_pairs:
-        return
+        return None, None  # Return None for both percentage_change and funding_rate
+
 
     url = 'https://fapi.binance.com/fapi/v1/klines'
     params = {'symbol': pair, 'interval': klines_interval_15M, 'limit': 100}
@@ -170,7 +171,6 @@ def get_price(pair):
 
             try:
                 funding_rate = get_funding_rate(pair)
-                # Do something with the funding_rate if needed
             except Exception as e:
                 print(f"Error in get_funding_rate: {e}")
 
@@ -178,11 +178,11 @@ def get_price(pair):
         else:
             print(
                 f"Failed to fetch data for {pair}. Status code: {response.status_code}")
-            return percentage_change, None
+            return None, None  # Return None for both percentage_change and funding_rate
+
     except Exception as e:
-        print(f"Error fetching price for {pair}: {e}")
-        return None, None
-    
+        print(f"Error in get_price: {e}")
+        return None, None  # Return None for both percentage_change and funding_rate
 
 def get_price_4H(pair):
     blacklisted_pairs = [pair.strip() for pair in config['Blacklist']['blacklisted_pairs'].split(',')]
@@ -260,6 +260,7 @@ def get_top_gainers_losers():
 
     for pair in usdt_pairs:
         percentage_change, _ = get_price(pair)
+        print(percentage_change)
         if percentage_change is not None:
             if percentage_change > 0:
                 top_gainers[pair] = percentage_change
@@ -279,6 +280,19 @@ def chunks(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
+def get_top_funding_rates():
+    top_funding_rates = {}  # Dictionary to store top funding rates
+
+    for pair in usdt_pairs:
+        funding_rate = get_funding_rate(pair)
+        if funding_rate is not None:
+            top_funding_rates[pair] = funding_rate
+
+    # Sort the dictionary by funding rate (absolute value)
+    top_funding_rates = dict(
+        sorted(top_funding_rates.items(), key=lambda item: abs(item[1]), reverse=True)[:10])
+
+    return top_funding_rates
 
 def main_15m(usdt_pairs):
     while True:
@@ -288,6 +302,8 @@ def main_15m(usdt_pairs):
 
             # Fetch top gainers and losers
             top_gainers, top_losers = get_top_gainers_losers()
+            top_funding_rates = get_top_funding_rates()
+
             if top_gainers is None or top_losers is None:
                 print("Error: get_top_gainers_losers returned None.")
                 continue
@@ -304,13 +320,8 @@ def main_15m(usdt_pairs):
                         future.result()  # Wait for the task to complete
                     except Exception as e:
                         print("Error in thread:", str(e))
-
             send_top_gainers_losers_to_slack(top_gainers, top_losers)
-
-            top_funding_rates = dict(
-                sorted(top_funding_rates.items(), key=lambda item: item[1], reverse=True)[:5])
             send_top_funding_rates_to_slack(top_funding_rates)
-
             # Sleep for 15 minutes
             time.sleep(900)
         except Exception as e:
