@@ -107,7 +107,7 @@ def get_funding_rate(pair):
         if response.status_code == 200:
             data = response.json()
             # Check the structure of the data
-            print(data)
+            # print(data)
 
             # Check if 'fundingRate' key is present and not None in the data
             if 'fundingRate' in data and data['fundingRate'] is not None:
@@ -143,7 +143,7 @@ def get_price(pair):
         if response.status_code == 200:
             data = response.json()
             # Check the structure of the data
-            print(data)  # Add this line to inspect the structure of the data
+            # print(data)  # Add this line to inspect the structure of the data
 
             # Extract OHLCV data from the response
             open_price = float(data[-1][1])
@@ -281,32 +281,29 @@ def chunks(lst, n):
 
 
 def main_15m(usdt_pairs):
-    top_gainers = {}  # Dictionary to store top gainers
-    top_losers = {}   # Dictionary to store top losers
-    top_funding_rates = {}  # Dictionary to store funding rates
-
     while True:
         try:
             print(
                 f"Updating prices at {time.strftime('%Y-%m-%d %H:%M:%S %Z', time.gmtime())}")
+
+            # Fetch top gainers and losers
             top_gainers, top_losers = get_top_gainers_losers()
+            if top_gainers is not None and top_losers is not None:
+                with ThreadPoolExecutor(max_workers=10) as executor:
+                    futures = []
+                    for pair in usdt_pairs:
+                        future = executor.submit(
+                            update_price_funding, pair, top_gainers, top_losers, top_funding_rates)
+                        futures.append(future)
 
+                    for future in futures:
+                        future.result()  # Wait for the task to complete
 
-            with ThreadPoolExecutor(max_workers=10) as executor:
-                futures = []
-                for pair in usdt_pairs:
-                    future = executor.submit(
-                        update_price_funding, pair, top_gainers, top_losers, top_funding_rates)
-                    futures.append(future)
+                send_top_gainers_losers_to_slack(top_gainers, top_losers)
 
-                for future in futures:
-                    future.result()  # Wait for the task to complete
-
-            send_top_gainers_losers_to_slack(top_gainers, top_losers)
-
-            top_funding_rates = dict(
-                sorted(top_funding_rates.items(), key=lambda item: item[1], reverse=True)[:5])
-            send_top_funding_rates_to_slack(top_funding_rates)
+                top_funding_rates = dict(
+                    sorted(top_funding_rates.items(), key=lambda item: item[1], reverse=True)[:5])
+                send_top_funding_rates_to_slack(top_funding_rates)
 
             # Sleep for 15 minutes
             time.sleep(900)
