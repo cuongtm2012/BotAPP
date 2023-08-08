@@ -107,14 +107,14 @@ def get_funding_rate(pair):
         # Check the structure of the data
         print(data)
 
-        # Check if 'lastFundingRate' key is present and not None in the data
-        if 'lastFundingRate' in data and data['lastFundingRate'] is not None:
-            funding_rate = float(data['lastFundingRate'])
+        # Check if 'fundingRate' key is present and not None in the data
+        if 'fundingRate' in data and data['fundingRate'] is not None:
+            funding_rate = float(data['fundingRate'])
             return funding_rate
         else:
-            # Handle the case when 'lastFundingRate' key is missing or None
+            # Handle the case when 'fundingRate' key is missing or None
             print(
-                f"Warning: 'lastFundingRate' key is missing or None in the data for {pair}.")
+                f"Warning: 'fundingRate' key is missing or None in the data for {pair}.")
             return 0.0  # Return a default value of 0.0 for funding rate
     else:
         print(
