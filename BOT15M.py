@@ -122,6 +122,7 @@ def get_funding_rate(pair):
         return 0
     
 def get_price(pair):
+    percentage_change = None  # Initialize percentage_change to None
     blacklisted_pairs = [pair.strip() for pair in config['Blacklist']['blacklisted_pairs'].split(',')]
 
     if pair in blacklisted_pairs:
@@ -133,6 +134,8 @@ def get_price(pair):
 
     if response.status_code == 200:
         data = response.json()
+        funding_rate = float(data['fundingRate'])
+
         open_price = float(data[1][1])
         close_price = float(data[1][4])
         current_volume = float(data[1][5])
@@ -164,11 +167,11 @@ def get_price(pair):
 
         print(f"{pair} - 15M : Close Price: {close_price_str}, Open Price: {open_price_str}, Volume: {volume_str}")
        
-        return percentage_change
+        return percentage_change, funding_rate
     else:
         print(
             f"Failed to fetch data for {pair}. Status code: {response.status_code}")
-        return 0
+        return percentage_change, None
     
 
 def get_price_4H(pair):
