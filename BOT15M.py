@@ -1,5 +1,5 @@
 import time
-from datetime import datetime, timedelta
+import datetime
 from concurrent.futures import ThreadPoolExecutor
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
@@ -12,6 +12,7 @@ import hashlib
 import threading
 import requests
 import concurrent.futures
+import logging
 
 
 # Load configuration from config.ini
@@ -78,7 +79,6 @@ def send_slack_notification(channel, alert_type, pair, *args):
                 formatted_args.append(arg)
             else:
                 formatted_args.append(str(arg))
-
         if alert_type == "BREAK_OUT":
             high_price, low_price = formatted_args
             percentage_change = (
@@ -93,9 +93,9 @@ def send_slack_notification(channel, alert_type, pair, *args):
             else:
                 message = f"ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
         elif alert_type == "BUY_SIGNAL":
-            message = f"+ BUY SIGNAL 4H: {formatted_args[0]} - EMA12 crossover EMA26"
+            message = f"+ BUY SIGNAL 4H: {pair} - EMA12 crossover EMA26"
         elif alert_type == "SELL_SIGNAL":
-            message = f"- SELL SIGNAL 4H: {formatted_args[0]} - EMA12 crossover EMA26"
+            message = f"- SELL SIGNAL 4H: {pair} - EMA12 crossover EMA26"
         response = slack_client.chat_postMessage(channel=channel, text=message)
         assert response["message"]["text"] == message
     except Exception as e:
@@ -133,10 +133,10 @@ def get_price(pair):
         return None, None  # Return None for both percentage_change and funding_rate
 
 
-    url = 'https://fapi.binance.com/fapi/v1/klines'
+    url = 'https://api.binance.com/api/v3/klines'
     params = {'symbol': pair, 'interval': klines_interval_15M, 'limit': 100}
     response = requests.get(url, params=params)
-
+    
     try:
         if response.status_code == 200:
             data = response.json()
@@ -154,8 +154,8 @@ def get_price(pair):
             close_price_str = f"{close_price:.8f}".rstrip("0").rstrip(".")
             volume_str = f"{current_volume:.2f}".rstrip("0").rstrip(".")
 
-            percentage_change = ((close_price - open_price) / open_price) * 100
-            if abs(percentage_change) > 2.0:
+            percentage_change = ((close_price - open_price) / open_price)
+            if abs(percentage_change) > 0.5:
                 send_slack_notification(
                     "#break_out", "BREAK_OUT", "", pair, close_price_str, open_price_str)
 
@@ -182,42 +182,48 @@ def get_price(pair):
         return None, None  # Return None for both percentage_change and funding_rate
 
 def get_price_4H(pair):
-    blacklisted_pairs = [pair.strip() for pair in config['Blacklist']['blacklisted_pairs'].split(',')]
+    try:
+        blacklisted_pairs = [pair.strip() for pair in config['Blacklist']['blacklisted_pairs'].split(',')]
 
-    if pair in blacklisted_pairs:
-        return
+        if pair in blacklisted_pairs:
+            return
 
-    url = 'https://fapi.binance.com/fapi/v1/klines'
-    params = {'symbol': pair, 'interval': klines_interval_4H, 'limit': 100}
-    response = requests.get(url, params=params)
+        url = 'https://api.binance.com/api/v3/klines'
+        params = {'symbol': pair, 'interval': '4h', 'limit': 10}
+        response = requests.get(url, params=params)
 
-    if response.status_code == 200:
-        data = response.json()
+        if response.status_code == 200:
+            data = response.json()
 
-        # Convert data to DataFrame with appropriate data types
-        df = pd.DataFrame(data, columns=["timestamp", "open", "high", "low", "close", "volume", "close_time",
-                          "quote_asset_volume", "number_of_trades", "taker_buy_base_asset_volume", "taker_buy_quote_asset_volume", "ignore"])
-        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-        df["open"] = df["open"].astype(float)
-        df["high"] = df["high"].astype(float)
-        df["low"] = df["low"].astype(float)
-        df["close"] = df["close"].astype(float)
-        df["volume"] = pd.to_numeric(df["volume"])
-       
-        # Calculate EMA12 and EMA26
-        ema12 = df["close"].ewm(span=12, adjust=False).mean()
-        ema26 = df["close"].ewm(span=26, adjust=False).mean()
+            # Convert data to DataFrame with appropriate data types
+            df = pd.DataFrame(data, columns=["timestamp", "open", "high", "low", "close", "volume", "close_time",
+                            "quote_asset_volume", "number_of_trades", "taker_buy_base_asset_volume", "taker_buy_quote_asset_volume", "ignore"])
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+            df["open"] = df["open"].astype(float)
+            df["high"] = df["high"].astype(float)
+            df["low"] = df["low"].astype(float)
+            df["close"] = df["close"].astype(float)
+            df["volume"] = pd.to_numeric(df["volume"])
+        
+            current_volume = df["volume"].iloc[-1]
+            if (current_volume > 100000):
+                # Calculate EMA12 and EMA26
+                ema12 = df["close"].ewm(span=12, adjust=False).mean()
+                ema26 = df["close"].ewm(span=26, adjust=False).mean()
 
-        # Check EMA crossover strategy
-        if ema12.iloc[-1] > ema26.iloc[-1] and ema12.iloc[-2] <= ema26.iloc[-2]:
-            send_slack_notification("#trading_signal", "BUY_SIGNAL", pair, "", "")
-        elif ema12.iloc[-1] < ema26.iloc[-1] and ema12.iloc[-2] >= ema26.iloc[-2]:
-            send_slack_notification("#trading_signal", "SELL_SIGNAL", pair, "", "")
+                # Check EMA crossover strategy
+                if ema12.iloc[-1] > ema26.iloc[-1] and ema12.iloc[-2] <= ema26.iloc[-2]:
+                    send_slack_notification("#trading_signal", "BUY_SIGNAL", pair, "", "")
+                elif ema12.iloc[-1] < ema26.iloc[-1] and ema12.iloc[-2] >= ema26.iloc[-2]:
+                    send_slack_notification("#trading_signal", "SELL_SIGNAL", pair, "", "")
 
-    else:
-        print(
-            f"Failed to fetch data for {pair}. Status code: {response.status_code}")
-        return 0
+        else:
+            print(
+                f"Failed to fetch data for {pair}. Status code: {response.status_code}")
+            return None
+    except Exception as e:
+        print(f"Error in get_price: {e}")
+        return None
 
 
 def send_top_gainers_losers_to_slack(top_gainers, top_losers):
@@ -243,7 +249,7 @@ def send_top_gainers_losers_to_slack(top_gainers, top_losers):
 
 
 def send_top_funding_rates_to_slack(top_funding_rates):
-    message = "Top 5 Highest Funding Rates:\n"
+    message = "Top 10 Highest Funding Rates:\n"
     for idx, (pair, funding_rate) in enumerate(top_funding_rates.items(), 1):
         if idx > 10:
             break
@@ -252,7 +258,7 @@ def send_top_funding_rates_to_slack(top_funding_rates):
     try:
         response = slack_client.chat_postMessage(channel="#top5_gain_loss", text=message)
         assert response["message"]["text"] == message
-        print("Top 5 highest funding rates sent successfully to Slack.")
+        print("Top 10 highest funding rates sent successfully to Slack.")
     except SlackApiError as e:
         print(f"Failed to send top 5 highest funding rates to Slack: {e}")
 
@@ -306,20 +312,27 @@ def get_top_funding_rates():
 
     return top_funding_rates
 
+def calculate_next_run_time_min(interval_minute):
+    now = datetime.datetime.utcnow()
+    next_run = now + datetime.timedelta(minutes=interval_minute)
+    next_run = next_run.replace(second=0, microsecond=0)
+    return (next_run - now).seconds
+
 def main_15m(usdt_pairs):
     while True:
         try:
+            next_run_seconds = calculate_next_run_time_min(15)
+
+            print(
+                f"Waiting {next_run_seconds} seconds for the next run...")
+            time.sleep(next_run_seconds)
             print(
                 f"Updating prices at {time.strftime('%Y-%m-%d %H:%M:%S %Z', time.gmtime())}")
-
-            # Fetch top gainers and losers
             top_gainers, top_losers = get_top_gainers_losers()
             top_funding_rates = get_top_funding_rates()
-
             if top_gainers is None or top_losers is None:
                 print("Error: get_top_gainers_losers returned None.")
                 continue
-
             with ThreadPoolExecutor(max_workers=10) as executor:
                 futures = []
                 for pair in usdt_pairs:
@@ -331,33 +344,39 @@ def main_15m(usdt_pairs):
                     try:
                         future.result()  # Wait for the task to complete
                     except Exception as e:
-                        print("Error in thread:", str(e))
+                        logging.error("Error in thread:", exc_info=e)
+
             send_top_gainers_losers_to_slack(top_gainers, top_losers)
             send_top_funding_rates_to_slack(top_funding_rates)
-            # Sleep for 15 minutes
-            time.sleep(900)
+
         except Exception as e:
-            print("Exception in main_15m:", str(e))
-            time.sleep(60)
+            logging.error("Exception in main_15m:", exc_info=e)
+            time.sleep(60)  # Adjust the sleep time if needed
+
+def calculate_next_run_time_hour(interval_hours):
+    now = datetime.datetime.utcnow()
+    next_run = now + datetime.timedelta(hours=interval_hours)
+    next_run = next_run.replace(minute=0, second=0, microsecond=0)
+    return (next_run - now).seconds
 
 def main_4h(usdt_pairs):
-    # Calculate the delay time until the next 4-hour candle closes
-    current_time = datetime.utcnow()
-    next_scheduled_time = current_time + timedelta(hours=interval_4H - (
-        current_time.hour % interval_4H)) - timedelta(minutes=current_time.minute)
-    delay_seconds = (next_scheduled_time - current_time).total_seconds()
-    time.sleep(delay_seconds)
-
     while True:
-        current_time = datetime.utcnow()
-        next_scheduled_time = current_time + \
-            timedelta(minutes=interval_4H) - \
-            timedelta(minutes=current_time.hour % interval_4H)
-        delay_seconds = (next_scheduled_time - current_time).total_seconds()
-        time.sleep(delay_seconds)
+        try:
+            next_run_seconds = calculate_next_run_time_hour(4)
+            print(
+                f"Waiting {next_run_seconds} seconds for the next run...")
+            time.sleep(next_run_seconds)
+            print(
+                f"Updating prices at {time.strftime('%Y-%m-%d %H:%M:%S %Z', time.gmtime())}")
+            for pair in usdt_pairs:
+                price_4h = get_price_4H(pair)
+                if price_4h is not None:
+                    print(f"{pair} - 4H Close Price: {price_4h}")
 
-        for pair in usdt_pairs:
-            get_price_4H(pair)
+
+        except Exception as e:
+            logging.error("Exception in main_4h:", exc_info=e)
+            time.sleep(60)  # Adjust the sleep time if needed
 
 # Function to update price and funding rate for a single pair
 def update_price_funding(pair, top_gainers, top_losers, top_funding_rates):
