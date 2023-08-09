@@ -11,6 +11,7 @@ import hmac
 import hashlib
 import threading
 import requests
+import concurrent.futures
 
 
 # Load configuration from config.ini
@@ -106,18 +107,12 @@ def get_funding_rate(pair):
 
         if response.status_code == 200:
             data = response.json()
-            # Check the structure of the data
-            # print(data)
-
-            # Check if 'fundingRate' key is present and not None in the data
             if 'lastFundingRate' in data and data['lastFundingRate'] is not None:
                 funding_rate = float(data['lastFundingRate'])
                 return funding_rate
             else:
-                # Handle the case when 'fundingRate' key is missing or None
-                print(
-                    f"Warning: 'fundingRate' key is missing or None in the data for {pair}.")
-                return 0.0  # Return a default value of 0.0 for funding rate
+                print(f"No funding rate data available for {pair}.")
+                return None
         else:
             print(
                 f"Failed to fetch funding rate for {pair}. Status code: {response.status_code}")
@@ -125,7 +120,7 @@ def get_funding_rate(pair):
     except Exception as e:
         print(f"Error fetching funding rate for {pair}: {e}")
         return None
-    
+
 
 def get_price(pair):
     percentage_change = None  # Initialize percentage_change to None
@@ -226,9 +221,14 @@ def get_price_4H(pair):
 def send_top_gainers_losers_to_slack(top_gainers, top_losers):
     message = "Top 5 Gainers:\n"
     for idx, (pair, percentage_change) in enumerate(top_gainers.items(), 1):
+        if idx > 5:
+            break
         message += f"{idx}. {pair} || {percentage_change:.2f}%\n"
+
     message += "\nTop 5 Losers:\n"
     for idx, (pair, percentage_change) in enumerate(top_losers.items(), 1):
+        if idx > 5:
+            break
         message += f"{idx}. {pair} || {percentage_change:.2f}%\n"
 
     try:
@@ -239,9 +239,12 @@ def send_top_gainers_losers_to_slack(top_gainers, top_losers):
     except SlackApiError as e:
         print(f"Failed to send top gainers and losers list to Slack: {e}")
 
+
 def send_top_funding_rates_to_slack(top_funding_rates):
     message = "Top 5 Highest Funding Rates:\n"
     for idx, (pair, funding_rate) in enumerate(top_funding_rates.items(), 1):
+        if idx > 10:
+            break
         message += f"{idx}. {pair} || Funding Rate: {funding_rate:.8f}\n"
 
     try:
@@ -258,14 +261,20 @@ def get_top_gainers_losers():
     top_gainers = {}  # Dictionary to store top gainers
     top_losers = {}   # Dictionary to store top losers
 
-    for pair in usdt_pairs:
-        percentage_change, _ = get_price(pair)
-        print(percentage_change)
-        if percentage_change is not None:
-            if percentage_change > 0:
-                top_gainers[pair] = percentage_change
-            else:
-                top_losers[pair] = percentage_change
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future_to_pair = {executor.submit(
+            get_price, pair): pair for pair in usdt_pairs}
+        for future in concurrent.futures.as_completed(future_to_pair):
+            pair = future_to_pair[future]
+            try:
+                percentage_change, _ = future.result()
+                if percentage_change is not None:
+                    if percentage_change > 0:
+                        top_gainers[pair] = percentage_change
+                    else:
+                        top_losers[pair] = percentage_change
+            except Exception as e:
+                print(f"Error fetching data for {pair}: {e}")
 
     # Sort the dictionaries by percentage change (absolute value)
     top_gainers = dict(
@@ -274,6 +283,7 @@ def get_top_gainers_losers():
         sorted(top_losers.items(), key=lambda item: abs(item[1]), reverse=True)[:5])
 
     return top_gainers, top_losers
+
 # Function to split list into chunk
 
 def chunks(lst, n):
