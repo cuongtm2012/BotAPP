@@ -73,7 +73,7 @@ def send_slack_notification(channel, alert_type, pair, *args):
         arg, float) else arg for arg in args]
 
     if alert_type == "BREAK_OUT":
-        high_price, low_price = args
+        pair, high_price, low_price = args
         percentage_change = (
             (float(high_price) - float(low_price)) / float(low_price)) * 100
         message = f"ALERT: {pair} - Highest price {high_price} is {percentage_change:.2f}% higher than the lowest price {low_price}!"
@@ -157,7 +157,7 @@ def get_price(pair):
                 send_slack_notification(
                     "#break_out", "BREAK_OUT", "", pair, close_price_str, open_price_str)
 
-            if current_volume > previous_volume * 4.0 and previous_volume > 100000:
+            if current_volume > previous_volume * 0.0 and previous_volume > 100000:
                 send_slack_notification(
                     "#volume_up", "VOLUME_UP", pair, volume_str, f"{previous_volume:.2f}")
 
