@@ -69,26 +69,33 @@ def get_usdt_pairs():
 def send_slack_notification(channel, alert_type, pair, *args):
     try:
         # Trim trailing zeros from price and volume values
-        args = [f"{float(arg):.8f}".rstrip("0").rstrip(".") if isinstance(
-            arg, (float, str)) else arg for arg in args]
+        formatted_args = []
+
+        for arg in args:
+            if isinstance(arg, (float, int)):
+                formatted_args.append(f"{arg:.8f}".rstrip("0").rstrip("."))
+            elif isinstance(arg, str):
+                formatted_args.append(arg)
+            else:
+                formatted_args.append(str(arg))
 
         if alert_type == "BREAK_OUT":
-            pair, high_price, low_price = args
+            high_price, low_price = formatted_args
             percentage_change = (
                 (float(high_price) - float(low_price)) / float(low_price)) * 100
             message = f"ALERT: {pair} - Highest price {high_price} is {percentage_change:.2f}% higher than the lowest price {low_price}!"
         elif alert_type == "VOLUME_UP":
-            current_volume, previous_volume = args
+            current_volume, previous_volume = formatted_args
             percentage_change = (
                 (float(current_volume) - float(previous_volume)) / float(previous_volume)) * 100
             if float(current_volume) > float(previous_volume) * 8.0:
                 message = f"<!here|here> ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
-            message = f"ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
+            else:
+                message = f"ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
         elif alert_type == "BUY_SIGNAL":
-                message = f"+ BUY SIGNAL 4H: {pair} - EMA12 crossover EMA26"
+            message = f"+ BUY SIGNAL 4H: {formatted_args[0]} - EMA12 crossover EMA26"
         elif alert_type == "SELL_SIGNAL":
-                message = f"- SELL SIGNAL 4H: {pair} - EMA12 crossover EMA26"
-
+            message = f"- SELL SIGNAL 4H: {formatted_args[0]} - EMA12 crossover EMA26"
         response = slack_client.chat_postMessage(channel=channel, text=message)
         assert response["message"]["text"] == message
     except Exception as e:
