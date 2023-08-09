@@ -69,8 +69,9 @@ def get_usdt_pairs():
 def send_slack_notification(channel, alert_type, pair, *args):
     try:
         # Trim trailing zeros from price and volume values
-        args = [f"{arg:.8f}".rstrip("0").rstrip(".") if isinstance(
-            arg, float) else arg for arg in args]
+        args = [f"{float(arg):.8f}".rstrip("0").rstrip(".") if isinstance(
+            arg, (float, str)) else arg for arg in args]
+            
         if alert_type == "BREAK_OUT":
             pair, high_price, low_price = args
             percentage_change = (
