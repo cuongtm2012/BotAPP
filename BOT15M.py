@@ -67,38 +67,32 @@ def get_usdt_pairs():
 
 
 def send_slack_notification(channel, alert_type, pair, *args):
-
-    # Trim trailing zeros from price and volume values
-    args = [f"{arg:.8f}".rstrip("0").rstrip(".") if isinstance(
-        arg, float) else arg for arg in args]
-
-    if alert_type == "BREAK_OUT":
-        pair, high_price, low_price = args
-        percentage_change = (
-            (float(high_price) - float(low_price)) / float(low_price)) * 100
-        message = f"ALERT: {pair} - Highest price {high_price} is {percentage_change:.2f}% higher than the lowest price {low_price}!"
-    elif alert_type == "VOLUME_UP":
-        current_volume, previous_volume = args
-        percentage_change = (
-            (float(current_volume) - float(previous_volume)) / float(previous_volume)) * 100
-        if current_volume > previous_volume * 8.0  :
-            message = f"<!here|here> ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
-        message = f"ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
-    elif alert_type == "BUY_SIGNAL":
-            message = f"+ BUY SIGNAL 4H: {pair} - EMA12 crossover EMA26"
-    elif alert_type == "SELL_SIGNAL":
-            message = f"- SELL SIGNAL 4H: {pair} - EMA12 crossover EMA26"
-
     try:
+        # Trim trailing zeros from price and volume values
+        args = [f"{arg:.8f}".rstrip("0").rstrip(".") if isinstance(
+            arg, float) else arg for arg in args]
+        if alert_type == "BREAK_OUT":
+            pair, high_price, low_price = args
+            percentage_change = (
+                (float(high_price) - float(low_price)) / float(low_price)) * 100
+            message = f"ALERT: {pair} - Highest price {high_price} is {percentage_change:.2f}% higher than the lowest price {low_price}!"
+        elif alert_type == "VOLUME_UP":
+            current_volume, previous_volume = args
+            percentage_change = (
+                (float(current_volume) - float(previous_volume)) / float(previous_volume)) * 100
+            if current_volume > previous_volume * 8.0  :
+                message = f"<!here|here> ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
+            message = f"ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
+        elif alert_type == "BUY_SIGNAL":
+                message = f"+ BUY SIGNAL 4H: {pair} - EMA12 crossover EMA26"
+        elif alert_type == "SELL_SIGNAL":
+                message = f"- SELL SIGNAL 4H: {pair} - EMA12 crossover EMA26"
+
         response = slack_client.chat_postMessage(channel=channel, text=message)
         assert response["message"]["text"] == message
-        print("Slack notification sent successfully.")
-    except SlackApiError as e:
+    except Exception as e:
         print(f"Failed to send Slack notification: {e}")
-
 # Function to fetch price for a specific pair
-
-
 def get_funding_rate(pair):
     try:
         url = 'https://fapi.binance.com/fapi/v1/premiumIndex'
