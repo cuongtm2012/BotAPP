@@ -1,5 +1,6 @@
 import time
 import datetime
+import schedule
 from concurrent.futures import ThreadPoolExecutor
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
@@ -327,71 +328,73 @@ def get_top_funding_rates():
 
     return top_funding_rates
 
-def calculate_next_run_time_min(interval_minute):
-    now = datetime.datetime.utcnow()
-    next_run = now + datetime.timedelta(minutes=interval_minute)
-    next_run = next_run.replace(second=0, microsecond=0)
-    return (next_run - now).seconds
+
+# Define a lock for synchronization
+lock = threading.Lock()
 
 def main_15m(usdt_pairs):
-    while True:
-        try:
-            next_run_seconds = calculate_next_run_time_min(15)
+    with lock:
+        while True:
+            try:
+                current_utc_minute = int(time.strftime('%M', time.gmtime()))
 
-            print(
-                f"Waiting {next_run_seconds} seconds for the next run...")
-            time.sleep(next_run_seconds)
-            print(
-                f"Updating prices at {time.strftime('%Y-%m-%d %H:%M:%S %Z', time.gmtime())}")
-            top_gainers, top_losers = get_top_gainers_losers()
-            top_funding_rates = get_top_funding_rates()
-            if top_gainers is None or top_losers is None:
-                print("Error: get_top_gainers_losers returned None.")
-                continue
-            with ThreadPoolExecutor(max_workers=10) as executor:
-                futures = []
-                for pair in usdt_pairs:
-                    future = executor.submit(
-                        update_price_funding, pair, top_gainers, top_losers, top_funding_rates)
-                    futures.append(future)
+                # Check if the current minute is one of the specified minutes
+                if current_utc_minute in [0, 15, 30, 45]:
+                    print(
+                        f"Updating prices at {time.strftime('%Y-%m-%d %H:%M:%S %Z', time.gmtime())}")
 
-                for future in futures:
-                    try:
-                        future.result()  # Wait for the task to complete
-                    except Exception as e:
-                        logging.error("Error in thread:", exc_info=e)
+                    top_gainers, top_losers = get_top_gainers_losers()
+                    top_funding_rates = get_top_funding_rates()
+                    if top_gainers is None or top_losers is None:
+                        print("Error: get_top_gainers_losers returned None.")
+                        continue
+                    with ThreadPoolExecutor(max_workers=10) as executor:
+                        futures = []
+                        for pair in usdt_pairs:
+                            future = executor.submit(
+                                update_price_funding, pair, top_gainers, top_losers, top_funding_rates)
+                            futures.append(future)
 
-            send_top_gainers_losers_to_slack(top_gainers, top_losers)
-            send_top_funding_rates_to_slack(top_funding_rates)
+                        for future in futures:
+                            try:
+                                future.result()  # Wait for the task to complete
+                            except Exception as e:
+                                logging.error("Error in thread:", exc_info=e)
 
-        except Exception as e:
-            logging.error("Exception in main_15m:", exc_info=e)
-            time.sleep(60)  # Adjust the sleep time if needed
+                    send_top_gainers_losers_to_slack(top_gainers, top_losers)
+                    send_top_funding_rates_to_slack(top_funding_rates)
 
-def calculate_next_run_time_hour(interval_hours):
-    now = datetime.datetime.utcnow()
-    next_run = now + datetime.timedelta(hours=interval_hours)
-    next_run = next_run.replace(minute=0, second=0, microsecond=0)
-    return (next_run - now).seconds
+                    print("15M update completed.")
+
+                # Sleep for 1 minute before checking again
+                time.sleep(60)
+            except Exception as e:
+                print("Exception in main_15m:", str(e))
+                time.sleep(60)
+        pass
 
 def main_4h(usdt_pairs):
-    while True:
-        try:
-            next_run_seconds = calculate_next_run_time_hour(4)
-            print(
-                f"Waiting {next_run_seconds} seconds for the next run...")
-            time.sleep(next_run_seconds)
-            print(
-                f"Updating prices at {time.strftime('%Y-%m-%d %H:%M:%S %Z', time.gmtime())}")
-            for pair in usdt_pairs:
-                price_4h = get_price_4H(pair)
-                if price_4h is not None:
-                    print(f"{pair} - 4H Close Price: {price_4h}")
+    with lock:
+        while True:
+            try:
+                current_utc_hour = int(time.strftime('%H', time.gmtime()))
 
+                # Check if the current hour is one of the specified hours
+                if current_utc_hour in [3, 7, 11, 15, 19, 23]:
+                    print(
+                        f"Updating prices at {time.strftime('%Y-%m-%d %H:%M:%S %Z', time.gmtime())}")
+                    for pair in usdt_pairs:
+                        price_4h = get_price_4H(pair)
+                        if price_4h is not None:
+                            print(f"{pair} - 4H Close Price: {price_4h}")
+                    print("4H update completed.")
 
-        except Exception as e:
-            logging.error("Exception in main_4h:", exc_info=e)
-            time.sleep(60)  # Adjust the sleep time if needed
+                # Sleep for 1 hour before checking again
+                time.sleep(3600)
+            except Exception as e:
+                print("Exception in main_4h:", str(e))
+                time.sleep(60)
+        pass
 
 # Function to update price and funding rate for a single pair
 def update_price_funding(pair, top_gainers, top_losers, top_funding_rates):
@@ -410,27 +413,15 @@ def update_price_funding(pair, top_gainers, top_losers, top_funding_rates):
     except Exception as e:
         print(f"Failed to fetch data for {pair}. {str(e)}")
 
-# Function to start the 15-minute schedule
-def start_15m_schedule(pairs):
-    main_15m(pairs)
 
-# Function to start the 4-hour schedule
-def start_4h_schedule(pairs):
-    main_4h(pairs)
+# Get the list of USDT pairs
+usdt_pairs, _ = get_usdt_pairs()
 
+# Schedule the main_15m function to run every minute
+schedule.every().minute.do(main_15m, usdt_pairs)
+# Schedule the main_4h function to run every minute
+schedule.every(1).minutes.do(main_4h, usdt_pairs)
 
-if __name__ == "__main__":
-    usdt_pairs, _ = get_usdt_pairs()
-
-    # Create threads for both 15-minute and 4-hour schedules
-    thread_15m = threading.Thread(
-        target=start_15m_schedule, args=(usdt_pairs,))
-    thread_4h = threading.Thread(target=start_4h_schedule, args=(usdt_pairs,))
-
-    # Start the threads
-    thread_15m.start()
-    thread_4h.start()
-
-    # Wait for both threads to finish
-    thread_15m.join()
-    thread_4h.join()
+while True:
+    schedule.run_pending()
+    time.sleep(1)
