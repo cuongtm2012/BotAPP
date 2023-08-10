@@ -102,7 +102,6 @@ def send_slack_notification(channel, alert_type, pair, *args):
     except Exception as e:
         error_message = f"Failed to send Slack notification: {e}"
         logging.exception(error_message)
-        print(error_message)
 # Function to fetch price for a specific pair
 def get_funding_rate(pair):
     try:
@@ -123,7 +122,8 @@ def get_funding_rate(pair):
                 f"Failed to fetch funding rate for {pair}. Status code: {response.status_code}")
             return None
     except Exception as e:
-        print(f"Error fetching funding rate for {pair}: {e}")
+        error_message = f"Error fetching funding rate for {e}"
+        logging.exception(error_message)
         return None
 
 
@@ -185,7 +185,8 @@ def get_price(pair):
             return None, None  # Return None for both percentage_change and funding_rate
 
     except Exception as e:
-        print(f"Error in get_price: {e}")
+        error_message = f"Error in get_price: {e}"
+        logging.exception(error_message)
         return None, None  # Return None for both percentage_change and funding_rate
 
 def get_price_4H(pair):
@@ -229,7 +230,8 @@ def get_price_4H(pair):
                 f"Failed to fetch data for {pair}. Status code: {response.status_code}")
             return None
     except Exception as e:
-        print(f"Error in get_price: {e}")
+        error_message = f"get_price_4H :: Error in get_price: {e}"
+        logging.exception(error_message)
         return None
 
 
@@ -300,7 +302,8 @@ def get_top_gainers_losers():
                     else:
                         top_losers[pair] = percentage_change
             except Exception as e:
-                print(f"Error fetching data for {pair}: {e}")
+                error_message = f"get_top_gainers_losers :: Error fetching data for {e}"
+                logging.exception(error_message)
 
     # Sort the dictionaries by percentage change (absolute value)
     top_gainers = dict(
@@ -371,7 +374,8 @@ def main_15m(usdt_pairs):
                 # Sleep for 1 minute before checking again
                 time.sleep(60)
             except Exception as e:
-                print("Exception in main_15m:", str(e))
+                error_message = f"main_15m :: Error fetching data for {e}"
+                logging.exception(error_message)
                 time.sleep(60)
         pass
 
@@ -379,10 +383,11 @@ def main_4h(usdt_pairs):
     with lock:
         while True:
             try:
-                current_utc_hour = int(time.strftime('%H', time.gmtime()))
-
+                utc_now = datetime.utcnow()
+                gmt_offset = 3  # Adjust this offset based on your GMT offset
+                gmt_hour = (utc_now.hour + gmt_offset) % 24
                 # Check if the current hour is one of the specified hours
-                if current_utc_hour in [3, 7, 11, 15, 19, 23]:
+                if gmt_hour in [3, 7, 11, 15, 19, 23]:
                     print(
                         f"Updating prices at {time.strftime('%Y-%m-%d %H:%M:%S %Z', time.gmtime())}")
                     for pair in usdt_pairs:
@@ -394,7 +399,8 @@ def main_4h(usdt_pairs):
                 # Sleep for 1 hour before checking again
                 time.sleep(3600)
             except Exception as e:
-                print("Exception in main_4h:", str(e))
+                error_message = f"main_4h :: Error fetching data for {e}"
+                logging.exception(error_message)
                 time.sleep(60)
         pass
 
@@ -413,7 +419,8 @@ def update_price_funding(pair, top_gainers, top_losers, top_funding_rates):
             top_funding_rates[pair] = funding_rate
 
     except Exception as e:
-        print(f"Failed to fetch data for {pair}. {str(e)}")
+        error_message = f"update_price_funding :: Error fetching data for {e}"
+        logging.exception(error_message)
 
 
 # Get the list of USDT pairs
