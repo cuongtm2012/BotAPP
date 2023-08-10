@@ -81,7 +81,7 @@ def send_slack_notification(channel, alert_type, pair, *args):
             else:
                 formatted_args.append(str(arg))
         if alert_type == "BREAK_OUT":
-            high_price, low_price = formatted_args
+            pair, high_price, low_price = formatted_args
             percentage_change = (
                 (float(high_price) - float(low_price)) / float(low_price)) * 100
             message = f"ALERT: {pair} - Highest price {high_price} is {percentage_change:.2f}% higher than the lowest price {low_price}!"
@@ -100,7 +100,9 @@ def send_slack_notification(channel, alert_type, pair, *args):
         response = slack_client.chat_postMessage(channel=channel, text=message)
         assert response["message"]["text"] == message
     except Exception as e:
-        print(f"Failed to send Slack notification: {e}")
+        error_message = f"Failed to send Slack notification: {e}"
+        logging.exception(error_message)
+        print(error_message)
 # Function to fetch price for a specific pair
 def get_funding_rate(pair):
     try:
