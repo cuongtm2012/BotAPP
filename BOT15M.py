@@ -168,6 +168,10 @@ def get_price(pair):
 
             try:
                 funding_rate = get_funding_rate(pair)
+
+                # Check funding rate and send Slack message
+                if funding_rate is not None and abs(funding_rate) > 0.008:
+                    send_funding_rates_break_out(pair, str(funding_rate))
             except Exception as e:
                 print(f"Error in get_funding_rate: {e}")
 
@@ -259,6 +263,17 @@ def send_top_funding_rates_to_slack(top_funding_rates):
         response = slack_client.chat_postMessage(channel="#top5_gain_loss", text=message)
         assert response["message"]["text"] == message
         print("Top 10 highest funding rates sent successfully to Slack.")
+    except SlackApiError as e:
+        print(f"Failed to send top 5 highest funding rates to Slack: {e}")
+
+
+def send_funding_rates_break_out(pair, funding_rate):
+    message = f"Pair with urgent Funding Rates: {pair} || Funding Rate: {funding_rate}\n"
+    try:
+        response = slack_client.chat_postMessage(
+            channel="#top5_gain_loss", text=message)
+        assert response["message"]["text"] == message
+        print("High funding rates sent successfully to Slack.")
     except SlackApiError as e:
         print(f"Failed to send top 5 highest funding rates to Slack: {e}")
 
@@ -391,6 +406,7 @@ def update_price_funding(pair, top_gainers, top_losers, top_funding_rates):
 
         if funding_rate is not None:
             top_funding_rates[pair] = funding_rate
+
     except Exception as e:
         print(f"Failed to fetch data for {pair}. {str(e)}")
 
