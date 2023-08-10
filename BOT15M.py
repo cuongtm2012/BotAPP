@@ -155,8 +155,8 @@ def get_price(pair):
             close_price_str = f"{close_price:.8f}".rstrip("0").rstrip(".")
             volume_str = f"{current_volume:.2f}".rstrip("0").rstrip(".")
 
-            percentage_change = ((close_price - open_price) / open_price)
-            if abs(percentage_change) > 0.03 and previous_volume > 10000:
+            percentage_change = ((close_price - open_price) / open_price) * 100
+            if abs(percentage_change) > 1.5 and previous_volume > 1000:
                 send_slack_notification(
                     "#break_out", "BREAK_OUT", "", pair, close_price_str, open_price_str)
 
