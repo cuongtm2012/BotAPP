@@ -189,7 +189,7 @@ def get_price(pair):
         logging.exception(error_message)
         return None, None  # Return None for both percentage_change and funding_rate
 
-def get_price_4H(pair):
+def get_price_1H(pair):
     try:
         blacklisted_pairs = [pair.strip() for pair in config['Blacklist']['blacklisted_pairs'].split(',')]
 
@@ -197,7 +197,7 @@ def get_price_4H(pair):
             return
 
         url = 'https://api.binance.com/api/v3/klines'
-        params = {'symbol': pair, 'interval': '4h', 'limit': 10}
+        params = {'symbol': pair, 'interval': '1h', 'limit': 10}
         response = requests.get(url, params=params)
 
         if response.status_code == 200:
@@ -230,7 +230,7 @@ def get_price_4H(pair):
                 f"Failed to fetch data for {pair}. Status code: {response.status_code}")
             return None
     except Exception as e:
-        error_message = f"get_price_4H :: Error in get_price: {e}"
+        error_message = f"get_price_1H :: Error in get_price: {e}"
         logging.exception(error_message)
         return None
 
@@ -379,27 +379,21 @@ def main_15m(usdt_pairs):
                 time.sleep(60)
         pass
 
-def main_4h(usdt_pairs):
+def main_1h(usdt_pairs):
     with lock:
         while True:
             try:
-                utc_now = datetime.utcnow()
-                gmt_offset = 3  # Adjust this offset based on your GMT offset
-                gmt_hour = (utc_now.hour + gmt_offset) % 24
-                # Check if the current hour is one of the specified hours
-                if gmt_hour in [3, 7, 11, 15, 19, 23]:
-                    print(
-                        f"Updating prices at {time.strftime('%Y-%m-%d %H:%M:%S %Z', time.gmtime())}")
+               current_time = datetime.utcnow()
+                # Check if it's the beginning of a new hour (0 minute mark)
+                if current_time.minute == 0:
                     for pair in usdt_pairs:
-                        price_4h = get_price_4H(pair)
-                        if price_4h is not None:
-                            print(f"{pair} - 4H Close Price: {price_4h}")
-                    print("4H update completed.")
-
-                # Sleep for 1 hour before checking again
-                time.sleep(3600)
+                        price_1h = get_price_1H(pair)
+                        if price_1h is not None:
+                            print(f"{pair} - 4H Close Price: {price_1h}")
+                    print("get_price_1H update completed.")
+                time.sleep(60)  
             except Exception as e:
-                error_message = f"main_4h :: Error fetching data for {e}"
+                error_message = f"run_get_price_4H :: Error fetching data for {e}"
                 logging.exception(error_message)
                 time.sleep(60)
         pass
@@ -428,8 +422,8 @@ usdt_pairs, _ = get_usdt_pairs()
 
 # Schedule the main_15m function to run every minute
 schedule.every().minute.do(main_15m, usdt_pairs)
-# Schedule the main_4h function to run every minute
-schedule.every(1).minutes.do(main_4h, usdt_pairs)
+# Schedule the main_1h function to run every minute
+schedule.every(1).minutes.do(main_1h, usdt_pairs)
 
 while True:
     schedule.run_pending()
