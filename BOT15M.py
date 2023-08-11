@@ -383,20 +383,19 @@ def main_1h(usdt_pairs):
     with lock:
         while True:
             try:
-               current_time = datetime.utcnow()
+                current_time = datetime.utcnow()
                 # Check if it's the beginning of a new hour (0 minute mark)
                 if current_time.minute == 0:
                     for pair in usdt_pairs:
                         price_1h = get_price_1H(pair)
                         if price_1h is not None:
-                            print(f"{pair} - 4H Close Price: {price_1h}")
+                            print(f"{pair} - 1H Close Price: {price_1h}")
                     print("get_price_1H update completed.")
                 time.sleep(60)  
             except Exception as e:
-                error_message = f"run_get_price_4H :: Error fetching data for {e}"
+                error_message = f"main_1h :: Error fetching data for {e}"
                 logging.exception(error_message)
                 time.sleep(60)
-        pass
 
 # Function to update price and funding rate for a single pair
 def update_price_funding(pair, top_gainers, top_losers, top_funding_rates):
