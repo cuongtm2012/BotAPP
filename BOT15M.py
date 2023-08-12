@@ -89,24 +89,22 @@ def send_slack_notification(channel, alert_type, pair, *args):
                 formatted_args.append(str(arg))
         if alert_type == "BREAK_OUT":
             pair, high_price, low_price = formatted_args
-            percentage_change = (
-                (float(high_price) - float(low_price)) / float(low_price)
-            ) * 100
+            percentage_change = ((float(high_price) - float(low_price)) / float(low_price)) * 100
             message = f"ALERT: {pair} - Highest price {high_price} is {percentage_change:.2f}% higher than the lowest price {low_price}!"
         elif alert_type == "VOLUME_UP":
             current_volume, previous_volume = formatted_args
-            percentage_change = (
-                (float(current_volume) - float(previous_volume))
-                / float(previous_volume)
-            ) * 100
+            percentage_change = ((float(current_volume) - float(previous_volume))/ float(previous_volume)) * 100
             if float(current_volume) > float(previous_volume) * 8.0:
                 message = f"<!here|here> ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
             else:
                 message = f"ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
         elif alert_type == "BUY_SIGNAL":
-            message = f"+ BUY SIGNAL 4H: {pair} - EMA12 crossover EMA26"
+            message = f"+ BUY SIGNAL 1H: {pair} - EMA12 crossover EMA26"
         elif alert_type == "SELL_SIGNAL":
-            message = f"- SELL SIGNAL 4H: {pair} - EMA12 crossover EMA26"
+            message = f"- SELL SIGNAL 1H: {pair} - EMA12 crossover EMA26"
+        elif alert_type == "SHORT":
+            pair, high_price, low_price = formatted_args
+            message = f"- You should SHORT {pair} - at {high_price}"
         response = slack_client.chat_postMessage(channel=channel, text=message)
         assert response["message"]["text"] == message
     except Exception as e:
@@ -172,9 +170,10 @@ def get_price(pair):
 
             percentage_change = ((close_price - open_price) / open_price) * 100
             if abs(percentage_change) > 1.5 and previous_volume > 1000:
-                send_slack_notification(
-                    "#break_out", "BREAK_OUT", "", pair, close_price_str, open_price_str
-                )
+                send_slack_notification("#break_out", "BREAK_OUT", "", pair, close_price_str, open_price_str)
+                funding_rate = get_funding_rate(pair)
+                if(abs(funding_rate) < 0.003):
+                    send_slack_notification("#break_out", "BREAK_OUT", "SHORT", pair, close_price_str, open_price_str)
 
             if current_volume > previous_volume * 4.0 and previous_volume > 1000000:
                 send_slack_notification(
@@ -226,6 +225,7 @@ def get_price_1H(pair):
 
         if response.status_code == 200:
             data = response.json()
+            print(f"Starting run get_price_1H {data}")
 
             # Convert data to DataFrame with appropriate data types
             df = pd.DataFrame(
@@ -260,15 +260,11 @@ def get_price_1H(pair):
 
                 # Check EMA crossover strategy
                 if ema12.iloc[-1] > ema26.iloc[-1] and ema12.iloc[-2] <= ema26.iloc[-2]:
-                    send_slack_notification(
-                        "#trading_signal", "BUY_SIGNAL", pair, "", ""
-                    )
+                    send_slack_notification("#trading_signal", "BUY_SIGNAL", pair, "", "")
                 elif (
                     ema12.iloc[-1] < ema26.iloc[-1] and ema12.iloc[-2] >= ema26.iloc[-2]
                 ):
-                    send_slack_notification(
-                        "#trading_signal", "SELL_SIGNAL", pair, "", ""
-                    )
+                    send_slack_notification("#trading_signal", "SELL_SIGNAL", pair, "", "")
 
         else:
             print(
@@ -386,9 +382,7 @@ def get_top_funding_rates():
 
     # Sort the dictionary by funding rate (absolute value)
     top_funding_rates = dict(
-        sorted(top_funding_rates.items(), key=lambda item: abs(item[1]), reverse=True)[
-            :10
-        ]
+        sorted(top_funding_rates.items(), key=lambda item: abs(item[1]), reverse=True)[:10]
     )
 
     return top_funding_rates
@@ -451,8 +445,6 @@ def main_1h(usdt_pairs):
     with lock:
         while True:
             try:
-                current_time = datetime.utcnow()
-                # Check if it's the beginning of a new hour (0 minute mark)
                 for pair in usdt_pairs:
                     price_1h = get_price_1H(pair)
                     if price_1h is not None:
