@@ -481,20 +481,11 @@ usdt_pairs, _ = get_usdt_pairs()
 
 # Schedule the main_15m function to run every minute
 schedule.every().minute.do(main_15m, usdt_pairs)
-# Schedule the main_1h function to run every minute
+# Schedule the main_1h function to run at the 55th minute of every hour
 schedule.every().hour.at(":55").do(main_1h, usdt_pairs)
 
+# Start the scheduling loop
+while True:
+    schedule.run_pending()
+    time.sleep(1)
 
-# Start threads to run the scheduled functions
-def run_schedule():
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
-
-
-# Create and start threads for scheduling and running functions
-schedule_thread = threading.Thread(target=run_schedule)
-schedule_thread.start()
-
-# Wait for the threads to finish (which will be never in this case)
-schedule_thread.join()
