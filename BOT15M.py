@@ -482,7 +482,7 @@ usdt_pairs, _ = get_usdt_pairs()
 # Schedule the main_15m function to run every minute
 schedule.every().minute.do(main_15m, usdt_pairs)
 # Schedule the main_1h function to run every minute
-schedule.every().hour.at(":10").do(main_1h, usdt_pairs)
+schedule.every().minute.at(":58").do(main_1h, usdt_pairs)
 
 
 # Start threads to run the scheduled functions
