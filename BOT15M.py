@@ -172,7 +172,7 @@ def get_price(pair):
             if abs(percentage_change) > 1.5 and previous_volume > 1000:
                 send_slack_notification("#break_out", "BREAK_OUT", "", pair, close_price_str, open_price_str)
                 funding_rate = get_funding_rate(pair)
-                if(abs(funding_rate) < 0.003):
+                if(funding_rate is not None and abs(funding_rate) < 0.003):
                     send_slack_notification("#break_out", "BREAK_OUT", "SHORT", pair, close_price_str, open_price_str)
 
             if current_volume > previous_volume * 4.0 and previous_volume > 1000000:
@@ -482,7 +482,7 @@ usdt_pairs, _ = get_usdt_pairs()
 # Schedule the main_15m function to run every minute
 schedule.every().minute.do(main_15m, usdt_pairs)
 # Schedule the main_1h function to run every minute
-schedule.every().hour.at(":58").do(main_1h, usdt_pairs)
+schedule.every().hour.at(":10").do(main_1h, usdt_pairs)
 
 
 # Start threads to run the scheduled functions
