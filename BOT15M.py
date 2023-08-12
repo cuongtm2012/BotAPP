@@ -450,11 +450,11 @@ def main_1h(usdt_pairs):
                     if price_1h is not None:
                         print(f"{pair} - 1H Close Price: {price_1h}")
                 print("get_price_1H update completed.")
-                # time.sleep(60)
+                time.sleep(60)
             except Exception as e:
                 error_message = f"main_1h :: Error fetching data for {e}"
                 logging.exception(error_message)
-                # time.sleep(60)
+                time.sleep(60)
 
 
 # Function to update price and funding rate for a single pair
@@ -482,7 +482,7 @@ usdt_pairs, _ = get_usdt_pairs()
 # Schedule the main_15m function to run every minute
 schedule.every().minute.do(main_15m, usdt_pairs)
 # Schedule the main_1h function to run every minute
-schedule.every().minute(60).do(main_1h, usdt_pairs)
+schedule.every().hour.at(":55").do(main_1h, usdt_pairs)
 
 
 # Start threads to run the scheduled functions
