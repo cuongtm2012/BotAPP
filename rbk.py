@@ -6,7 +6,7 @@ import re
 from collections import Counter
 
 try:
-    with open("unique_numbers.txt", "a", encoding="utf-8") as file:
+    with open("0x_numbers.txt", "a", encoding="utf-8") as file:
         # Get today's date in the format YYYY-MM-DD
         today_date = datetime.today().strftime('%Y-%m-%d')
         # Create the URL with the today's date
@@ -75,6 +75,7 @@ try:
 
         all_numbers_array = []  # List to accumulate all numbers from all articles
         number_appearing_time = {}  # Dictionary to store the appearing time of each number
+        all_0x_numbers_set = set()  # Set to store all unique 0x numbers
 
         continue_loop = True
         while continue_loop:
@@ -125,42 +126,51 @@ try:
                         yesterday_two = datetime.now() - timedelta(days=2)
                         target_time_two = yesterday_two.replace(hour=18, minute=30)
 
-                        # Compare and break if the condition is met
-                        if full_date_time < target_time or full_date_time > full_today_date:
-                            continue
-                        
                         if full_date_time < target_time_two:
                             continue_loop = False
                             break
 
+                        # Compare and break if the condition is met
+                        if full_date_time < target_time or full_date_time > full_today_date:
+                            continue
+
                         # Filter out lines containing "Ngày"
-                        content_lines = [line for line in content_text.split(
-                            '\n') if "Ngày" not in line]
+                        # Filter out lines containing date format
+                        date_formats = r'\d{1,2}[\/.-]\d{1,2}'
+                        content_lines = [line for line in content_text.split('\n') if "Ngày" not in line and not re.search(date_formats, line)]
+
 
                         if "9x" in content_text and "Mức" not in content_text and "TH" not in content_text:
-                            with open("unique_numbers.txt", "a", encoding="utf-8") as file:
+                            with open("0x_numbers.txt", "a", encoding="utf-8") as file:
                                 file.write(f"Post {idx}:\n")
                                 file.write("Content:\n")
                                 file.write('\n'.join(content_lines) + "\n")
 
-                            with open("unique_numbers.txt", "a", encoding="utf-8") as file:   
+                            with open("0x_numbers.txt", "a", encoding="utf-8") as file:   
                                 file.write(f"Author: {data_author_value}\n")
                                 file.write(f"Date: {date}\n")
                                 file.write(f"Time: {time}\n")
                                 file.write("=" * 50 + "\n")
 
-                            # Use regular expression to find numbers between "1x" and "0x"
-                            pattern = r'0x\n(.*?)$'
-                            matches = re.search(
-                                pattern, '\n'.join(content_lines), re.DOTALL)
+                            # Use regular expression to find numbers between "0x" to end of content
+                            # pattern = r'\n([0-9/]*):?\s*0x\n(.*?)$'
+                            pattern = r'\n([0-9/]*):?\s*0x:?(\n.*?)$'
+                            matches = re.search(pattern, '\n'.join(content_lines), re.DOTALL)
 
                             if matches:
-                                numbers_string = matches.group(1)
+                                # Get the date prefix if present
+                                date_prefix = matches.group(1)
+                                numbers_string = matches.group(2)
                                 numbers_array = numbers_string.split(',')
-                                numbers_array = [num.strip() for num in numbers_array if num.strip().isdigit()]
 
-                                with open("unique_numbers.txt", "a", encoding="utf-8") as file:
-                                    file.write(f"0x array: {numbers_array} \n")
+                                # Remove any leading or trailing spaces from the numbers
+                                numbers_array = [num.strip() for num in numbers_array]
+
+                                # Join the numbers to form the desired string
+                                numbers_string = ','.join(numbers_array)
+
+                                with open("0x_numbers.txt", "a", encoding="utf-8") as file:
+                                    file.write(f"0x array: {numbers_string} \n")
 
                                 # Count the occurrences of each number in the current post
                                 num_counts = Counter(numbers_array)
@@ -173,6 +183,9 @@ try:
 
                                 # Accumulate numbers from all articles
                                 all_numbers_array.extend(numbers_array)
+
+                                # Accumulate 0x numbers from all articles
+                                all_0x_numbers_set.update(numbers_array)
 
                             else:
                                 print("Pattern not found in input text.")
@@ -193,15 +206,27 @@ try:
 
         # Sort the keys (appearance counts) in descending order
         sorted_appearance_counts = sorted(grouped_numbers.keys(), reverse=True)
-        
+
         # Print the grouped numbers in the desired format
         for count in sorted_appearance_counts:
             numbers = grouped_numbers[count]
             numbers.sort(key=lambda num: number_appearing_time.get(num, 0))  # Sort by appearing time
             numbers_text = ', '.join(numbers)
-            
-            with open("unique_numbers.txt", "a", encoding="utf-8") as file:
+
+            with open("0x_numbers.txt", "a", encoding="utf-8") as file:
                 file.write(f"Numbers appearing {count} times: {numbers_text} ,\n")
+
+        # Convert the set of unique 0x numbers into a sorted list
+        all_0x_numbers_list = sorted(list(all_0x_numbers_set))
+
+        # Remove empty string ('') from the list
+        all_0x_numbers_list = [num for num in all_0x_numbers_list if num != '']
+
+        # Print all unique 0x numbers as a comma-separated string
+        all_0x_numbers_string = ', '.join(all_0x_numbers_list)
+        with open("0x_numbers.txt", "a", encoding="utf-8") as file:
+            file.write(f"All unique 0x numbers: {all_0x_numbers_string} \n", )
+
     file.close()
 
 except Exception as e:
