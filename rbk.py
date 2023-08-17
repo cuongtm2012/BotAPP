@@ -152,41 +152,27 @@ try:
                                 file.write(f"Time: {time}\n")
                                 file.write("=" * 50 + "\n")
 
-                            # Use regular expression to find numbers between "0x" to end of content
-                            # pattern = r'\n([0-9/]*):?\s*0x\n(.*?)$'
-                            pattern = r'\n([0-9/]*):?\s*0x:?(\n.*?)$'
-                            matches = re.search(pattern, '\n'.join(content_lines), re.DOTALL)
+                            # Use regular expression to find numbers between "1x" and "0x"
+                            pattern = r'(?:1x|1x:)(.*?)\n0x(?::)?'
+                            matches = re.search(
+                                pattern, '\n'.join(content_lines), re.DOTALL)
 
                             if matches:
-                                # Get the date prefix if present
-                                date_prefix = matches.group(1)
-                                numbers_string = matches.group(2)
+                                numbers_string = matches.group(1)
                                 numbers_array = numbers_string.split(',')
+                                numbers_array = [
+                                    num.strip() for num in numbers_array if num.strip().isdigit()]
 
-                                # Remove any leading or trailing spaces from the numbers
-                                numbers_array = [num.strip() for num in numbers_array]
-
-                                # Join the numbers to form the desired string
-                                numbers_string = ','.join(numbers_array)
-
-                                with open("0x_numbers.txt", "a", encoding="utf-8") as file:
-                                    file.write(f"0x array: {numbers_string} \n")
-
-                                # Count the occurrences of each number in the current post
-                                num_counts = Counter(numbers_array)
-
-                                # Update the appearing time of each number in the number_appearing_time dictionary
-                                for num, count in num_counts.items():
-                                    if num not in number_appearing_time:
-                                        # Store the post index as appearing time
-                                        number_appearing_time[num] = idx
-
+                                with open("0x_numbers.txt", "a", encoding="utf-8") as file:   
+                                    file.write(f"1x array: {numbers_array}\n")
                                 # Accumulate numbers from all articles
                                 all_numbers_array.extend(numbers_array)
 
-                                # Accumulate 0x numbers from all articles
-                                all_0x_numbers_set.update(numbers_array)
-
+                                # Store the appearing time of each number
+                                for num in numbers_array:
+                                    if num not in number_appearing_time:
+                                        # Store the post index as appearing time
+                                        number_appearing_time[num] = idx
                             else:
                                 print("Pattern not found in input text.")
                 # Move to the next page
@@ -210,22 +196,12 @@ try:
         # Print the grouped numbers in the desired format
         for count in sorted_appearance_counts:
             numbers = grouped_numbers[count]
-            numbers.sort(key=lambda num: number_appearing_time.get(num, 0))  # Sort by appearing time
+            numbers.sort(key=lambda num: number_appearing_time.get(
+                num, 0))  # Sort by appearing time
             numbers_text = ', '.join(numbers)
-
             with open("0x_numbers.txt", "a", encoding="utf-8") as file:
-                file.write(f"Numbers appearing {count} times: {numbers_text} ,\n")
+                file.write(f"Numbers appearing {count} times: {numbers_text}, \n")
 
-        # Convert the set of unique 0x numbers into a sorted list
-        all_0x_numbers_list = sorted(list(all_0x_numbers_set))
-
-        # Remove empty string ('') from the list
-        all_0x_numbers_list = [num for num in all_0x_numbers_list if num != '']
-
-        # Print all unique 0x numbers as a comma-separated string
-        all_0x_numbers_string = ', '.join(all_0x_numbers_list)
-        with open("0x_numbers.txt", "a", encoding="utf-8") as file:
-            file.write(f"All unique 0x numbers: {all_0x_numbers_string} \n", )
 
     file.close()
 
