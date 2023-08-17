@@ -173,6 +173,9 @@ try:
                                     if num not in number_appearing_time:
                                         # Store the post index as appearing time
                                         number_appearing_time[num] = idx
+                                
+                                # Accumulate 0x numbers from all articles
+                                all_0x_numbers_set.update(numbers_array)
                             else:
                                 print("Pattern not found in input text.")
                 # Move to the next page
@@ -202,7 +205,16 @@ try:
             with open("0x_numbers.txt", "a", encoding="utf-8") as file:
                 file.write(f"Numbers appearing {count} times: {numbers_text}, \n")
 
+        # Convert the set of unique 0x numbers into a sorted list
+        all_0x_numbers_list = sorted(list(all_0x_numbers_set))
 
+        # Remove empty string ('') from the list
+        all_0x_numbers_list = [num for num in all_0x_numbers_list if num != '']
+
+        # Print all unique 0x numbers as a comma-separated string
+        all_0x_numbers_string = ', '.join(all_0x_numbers_list)
+        with open("0x_numbers.txt", "a", encoding="utf-8") as file:
+            file.write(f"All unique 0x numbers: {all_0x_numbers_string} \n", )
     file.close()
 
 except Exception as e:
