@@ -32,8 +32,8 @@ try:
             # Get the total number of unique numbers
             total_unique_numbers = len(unique_numbers_set)
             file.write("Today Date : " + today_date + "\n")
-            file.write("Unique Numbers: " + formatted_output + "\n")
-            file.write("Total Unique Numbers: " + str(total_unique_numbers) + "\n")            
+            file.write("Unique Numbers RBK: " + formatted_output + "\n")
+            file.write("Total Unique Numbers RBK: " + str(total_unique_numbers) + "\n")            
         else:
             print(
                 f"Failed to fetch data from {url}. Status code: {response.status_code}")
@@ -226,6 +226,25 @@ try:
         all_0x_numbers_string = ', '.join(all_0x_numbers_list)
         with open("0x_numbers.txt", "a", encoding="utf-8") as file:
             file.write(f"All unique 0x numbers: {all_0x_numbers_string} \n", )
+
+
+        # Create a set of integers from all_0x_numbers_set
+        all_0x_numbers_int_set = set(map(int, all_0x_numbers_set))
+
+        # Create a list of numbers from 00 to 99
+        all_numbers_00_to_99 = list(range(100))
+
+        # Find the numbers that are not in all_0x_numbers_int_set
+        missing_numbers = [
+            str(num) for num in all_numbers_00_to_99 if num not in all_0x_numbers_int_set]
+        # Remove empty string ('') from the list
+        missing_numbers_list = [num for num in missing_numbers if num != '']
+
+        # Print all unique 0x numbers as a comma-separated string
+        missing_numbers_string = ', '.join(missing_numbers_list)
+        with open("0x_numbers.txt", "a", encoding="utf-8") as file:
+            file.write(
+                f"Not appearing in 0x numbers: {missing_numbers_string} \n", )
 
     file.close()
 
