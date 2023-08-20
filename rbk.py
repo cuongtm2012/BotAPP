@@ -229,7 +229,9 @@ try:
 
 
         # Create a set of integers from all_0x_numbers_set
-        all_0x_numbers_int_set = set(map(int, all_0x_numbers_set))
+        # all_0x_numbers_int_set = set(map(int, all_0x_numbers_set))
+        all_0x_numbers_int_set = {int(num) for num in all_0x_numbers_set if num != ''}
+
 
         # Create a list of numbers from 00 to 99
         all_numbers_00_to_99 = list(range(100))
