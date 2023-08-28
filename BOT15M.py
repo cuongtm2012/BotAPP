@@ -94,10 +94,7 @@ def send_slack_notification(channel, alert_type, pair, *args):
         elif alert_type == "VOLUME_UP":
             current_volume, previous_volume = formatted_args
             percentage_change = ((float(current_volume) - float(previous_volume))/ float(previous_volume)) * 100
-            if float(current_volume) > float(previous_volume) * 8.0:
-                message = f"<!here|here> ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
-            else:
-                message = f"ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
+            message = f"ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
         elif alert_type == "BUY_SIGNAL":
             message = f"+ BUY SIGNAL 1H: {pair} - EMA12 crossover EMA26"
         elif alert_type == "SELL_SIGNAL":
@@ -479,7 +476,7 @@ usdt_pairs, _ = get_usdt_pairs()
 # Schedule the main_15m function to run every minute
 schedule.every().minute.do(main_15m, usdt_pairs)
 # Schedule the main_1h function to run at the 55th minute of every hour
-schedule.every().hour.at(":55").do(main_1h, usdt_pairs)
+schedule.every().hour.do(main_1h, usdt_pairs)
 
 # Start the scheduling loop
 while True:
