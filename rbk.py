@@ -39,6 +39,29 @@ try:
                 f"Failed to fetch data from {url}. Status code: {response.status_code}")
 
 
+        # URL of the webpage
+        url = f"https://rongbachkim.com/trend.php?list&alone&day={today_date}"
+
+        # Send a GET request to the URL
+        response = requests.get(url)
+        content = response.content
+
+        # Parse the HTML content with BeautifulSoup
+        soup = BeautifulSoup(content, 'html.parser')
+
+        # Find all elements with the specified class
+        trend_number_elements = soup.find_all('a', class_='trend_number')
+
+        # Extract and accumulate the text from each trend_number element
+        extracted_numbers = []
+        for element in trend_number_elements:
+            extracted_numbers.append(element.get_text())
+
+        # Join the extracted numbers into a comma-separated string
+        numbers_string = ', '.join(extracted_numbers)
+        file.write("Lo TOP RBK: " + str(numbers_string) + "\n")
+
+
         # URL of the page
         url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-8-2023.95377/"
 
