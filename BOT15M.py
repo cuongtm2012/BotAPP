@@ -222,7 +222,7 @@ def get_price_1H(pair):
 
         if response.status_code == 200:
             data = response.json()
-            print(f"Starting run get_price_1H {data}")
+            # print(f"Starting run get_price_1H {data}")
 
             # Convert data to DataFrame with appropriate data types
             df = pd.DataFrame(
@@ -258,11 +258,8 @@ def get_price_1H(pair):
                 # Check EMA crossover strategy
                 if ema12.iloc[-1] > ema26.iloc[-1] and ema12.iloc[-2] <= ema26.iloc[-2]:
                     send_slack_notification("#trading_signal", "BUY_SIGNAL", pair, "", "")
-                elif (
-                    ema12.iloc[-1] < ema26.iloc[-1] and ema12.iloc[-2] >= ema26.iloc[-2]
-                ):
+                elif (ema12.iloc[-1] < ema26.iloc[-1] and ema12.iloc[-2] >= ema26.iloc[-2]):
                     send_slack_notification("#trading_signal", "SELL_SIGNAL", pair, "", "")
-
         else:
             print(
                 f"Failed to fetch data for {pair}. Status code: {response.status_code}"

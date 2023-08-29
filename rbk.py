@@ -163,7 +163,7 @@ try:
                         content_lines = [line for line in content_text.split('\n') if "Ngày" not in line and not re.search(date_formats, line)]
 
 
-                        if "9x" in content_text and "Mức" not in content_text and "TH" not in content_text:
+                        if "9x" in content_text and "Mức" not in content_text and "Dàn TH" not in content_text:
                             with open("0x_numbers.txt", "a", encoding="utf-8") as file:
                                 file.write(f"Post {idx}:\n")
                                 file.write("Content:\n")
@@ -274,4 +274,4 @@ try:
     file.close()
 
 except Exception as e:
-    print(f"An error occurred: {e}")
+    print(f"An error occurred: {e} and content is {message_content}")
