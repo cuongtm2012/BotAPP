@@ -23,13 +23,6 @@ config.read("config.ini")
 interval_15M = int(config["Schedule"]["interval_15M"])
 interval_4H = int(config["Schedule"]["interval_4H"])
 
-# Binance configuration
-klines_interval_15M = config["Binance"]["klines_interval_15M"]
-klines_interval_4H = config["Binance"]["klines_interval_4H"]
-rsi_period = int(config["Strategy"]["rsi_period"])
-ema_short_period = int(config["Strategy"]["ema_short_period"])
-ema_long_period = int(config["Strategy"]["ema_long_period"])
-
 # Replace 'YOUR_SLACK_API_TOKEN' with your actual Slack API token
 slack_token = config["Slack"]["slack_token"]
 slack_client = WebClient(token=slack_token)
@@ -145,7 +138,7 @@ def get_price(pair):
         return None, None  # Return None for both percentage_change and funding_rate
 
     url = "https://api.binance.com/api/v3/klines"
-    params = {"symbol": pair, "interval": klines_interval_15M, "limit": 100}
+    params = {"symbol": pair, "interval": "15m", "limit": 100}
     response = requests.get(url, params=params)
 
     try:
@@ -205,71 +198,6 @@ def get_price(pair):
         error_message = f"Error in get_price: {e}"
         logging.exception(error_message)
         return None, None  # Return None for both percentage_change and funding_rate
-
-
-def get_price_1H(pair):
-    try:
-        blacklisted_pairs = [
-            pair.strip() for pair in config["Blacklist"]["blacklisted_pairs"].split(",")
-        ]
-
-        if pair in blacklisted_pairs:
-            return
-
-        url = "https://api.binance.com/api/v3/klines"
-        params = {"symbol": pair, "interval": "1h", "limit": 10}
-        response = requests.get(url, params=params)
-
-        if response.status_code == 200:
-            data = response.json()
-            # print(f"Starting run get_price_1H {data}")
-
-            # Convert data to DataFrame with appropriate data types
-            df = pd.DataFrame(
-                data,
-                columns=[
-                    "timestamp",
-                    "open",
-                    "high",
-                    "low",
-                    "close",
-                    "volume",
-                    "close_time",
-                    "quote_asset_volume",
-                    "number_of_trades",
-                    "taker_buy_base_asset_volume",
-                    "taker_buy_quote_asset_volume",
-                    "ignore",
-                ],
-            )
-            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-            df["open"] = df["open"].astype(float)
-            df["high"] = df["high"].astype(float)
-            df["low"] = df["low"].astype(float)
-            df["close"] = df["close"].astype(float)
-            df["volume"] = pd.to_numeric(df["volume"])
-
-            current_volume = df["volume"].iloc[-1]
-            if current_volume > 100000:
-                # Calculate EMA12 and EMA26
-                ema12 = df["close"].ewm(span=12, adjust=False).mean()
-                ema26 = df["close"].ewm(span=26, adjust=False).mean()
-
-                # Check EMA crossover strategy
-                if ema12.iloc[-1] > ema26.iloc[-1] and ema12.iloc[-2] <= ema26.iloc[-2]:
-                    send_slack_notification("#trading_signal", "BUY_SIGNAL", pair, "", "")
-                elif (ema12.iloc[-1] < ema26.iloc[-1] and ema12.iloc[-2] >= ema26.iloc[-2]):
-                    send_slack_notification("#trading_signal", "SELL_SIGNAL", pair, "", "")
-        else:
-            print(
-                f"Failed to fetch data for {pair}. Status code: {response.status_code}"
-            )
-            return None
-    except Exception as e:
-        error_message = f"get_price_1H :: Error in get_price: {e}"
-        logging.exception(error_message)
-        return None
-
 
 def send_top_gainers_losers_to_slack(top_gainers, top_losers):
     message = "Top 5 Gainers:\n"
@@ -434,23 +362,6 @@ def main_15m(usdt_pairs):
                 time.sleep(60)
         pass
 
-
-def main_1h(usdt_pairs):
-    with lock:
-        while True:
-            try:
-                for pair in usdt_pairs:
-                    price_1h = get_price_1H(pair)
-                    if price_1h is not None:
-                        print(f"{pair} - 1H Close Price: {price_1h}")
-                print("get_price_1H update completed.")
-                time.sleep(60)
-            except Exception as e:
-                error_message = f"main_1h :: Error fetching data for {e}"
-                logging.exception(error_message)
-                time.sleep(60)
-
-
 # Function to update price and funding rate for a single pair
 def update_price_funding(pair, top_gainers, top_losers, top_funding_rates):
     try:
@@ -475,8 +386,6 @@ usdt_pairs, _ = get_usdt_pairs()
 
 # Schedule the main_15m function to run every minute
 schedule.every().minute.do(main_15m, usdt_pairs)
-# Schedule the main_1h function to run at the 55th minute of every hour
-schedule.every().hour.do(main_1h, usdt_pairs)
 
 # Start the scheduling loop
 while True:
