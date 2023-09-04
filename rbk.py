@@ -1,10 +1,34 @@
+import schedule
+import time
+from slack_sdk import WebClient
 import requests
+import configparser
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from collections import defaultdict
 import re
 from collections import Counter
 
+
+# # Load configuration from config.ini
+# config = configparser.ConfigParser()
+# config.read("config.ini")
+
+# # Initialize the Slack WebClient with your Slack app's token
+# slack_token = config["Slack"]["slack_token"]
+# slack_channel = "#rbk"
+# slack_client = WebClient(token=slack_token)
+
+# # Define the variable to store message content
+# message_content = ""
+
+# # Function to send a message to Slack
+# def send_to_slack(message):
+#     slack_client.chat_postMessage(channel=slack_channel, text=message)
+
+
+# def run_and_send_to_slack():
+#     global message_content
 try:
     with open("0x_numbers.txt", "a", encoding="utf-8") as file:
         # Get today's date in the format YYYY-MM-DD
@@ -63,7 +87,7 @@ try:
 
 
         # URL of the page
-        url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-8-2023.95377/"
+        url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-9-2023.95564/"
 
         # Send a GET request to the URL
         response = requests.get(url)
@@ -93,7 +117,7 @@ try:
         # Find the maximum value among the unique numbers
         greatest_number = max(unique_numbers_list)
 
-        base_url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-8-2023.95377/"
+        base_url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-9-2023.95564/"
         page = greatest_number
 
         all_numbers_array = []  # List to accumulate all numbers from all articles
@@ -103,7 +127,14 @@ try:
         continue_loop = True
         while continue_loop:
             # Construct the URL for the current page
-            url = f"{base_url}page-{page}"
+            # url = f"{base_url}page-{page}"
+            if page == 0:
+                continue_loop = False
+                break
+            elif page == 1:
+                url = base_url
+            else:
+                url = f"{base_url}page-{page}"
 
             # Send a GET request to the URL
             response = requests.get(url)
@@ -271,7 +302,22 @@ try:
             file.write(
                 f"Not appearing in 0x numbers: {missing_numbers_string} \n", )
 
+        #  # After writing to the file, read the content and send it to Slack
+        # with open("0x_numbers.txt", "r", encoding="utf-8") as file:
+        #     message_content = file.read()
+        #     send_to_slack(message_content)
     file.close()
 
 except Exception as e:
     print(f"An error occurred: {e} and content is {message_content}")
+    error_message = f"An error occurred: {e}"
+    # send_to_slack(error_message)
+
+
+# # Schedule the job to run at 17:00 every day
+# schedule.every().day.at("16:19").do(run_and_send_to_slack)
+
+# # Infinite loop to keep the script running
+# while True:
+#     schedule.run_pending()
+#     time.sleep(1)
