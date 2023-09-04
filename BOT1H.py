@@ -188,11 +188,11 @@ def main_1h(usdt_pairs):
                     if price_1h is not None:
                         print(f"{pair} - 1H Close Price: {price_1h}")
                 print("get_price_1H update completed.")
-                time.sleep(60)
+                time.sleep(3600)
             except Exception as e:
                 error_message = f"main_1h :: Error fetching data for {e}"
                 logging.exception(error_message)
-                time.sleep(60)
+                time.sleep(3600)
 
 
 # Get the list of USDT pairs
