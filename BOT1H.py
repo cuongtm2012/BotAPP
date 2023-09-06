@@ -7,7 +7,6 @@ import configparser
 import pandas as pd
 from ta.momentum import RSIIndicator
 from ta.trend import MACD
-import threading
 import requests
 import logging
 
@@ -169,24 +168,16 @@ def get_price_1H(pair):
         logging.exception(error_message)
         return None
 
-
-# Define a lock for synchronization
-lock = threading.Lock()
-
 def main_1h(usdt_pairs):
-    with lock:
-        while True:
-            try:
-                for pair in usdt_pairs:
-                    price_1h = get_price_1H(pair)
-                    if price_1h is not None:
-                        print(f"{pair} - 1H Close Price: {price_1h}")
-                print("get_price_1H update completed.")
-                time.sleep(1)
-            except Exception as e:
-                error_message = f"main_1h :: Error fetching data for {e}"
-                logging.exception(error_message)
-                time.sleep(1)
+    try:
+        for pair in usdt_pairs:
+            price_1h = get_price_1H(pair)
+            if price_1h is not None:
+                print(f"{pair} - 1H Close Price: {price_1h}")
+        print("get_price_1H update completed.")
+    except Exception as e:
+        error_message = f"main_1h :: Error fetching data for {e}"
+        logging.exception(error_message)
 
 
 # Get the list of USDT pairs

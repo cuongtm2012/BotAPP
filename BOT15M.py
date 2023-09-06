@@ -304,46 +304,35 @@ def get_top_funding_rates():
 
     return top_funding_rates
 
-
-# Define a lock for synchronization
-lock = threading.Lock()
-
-
 def main_15m(usdt_pairs):
-    with lock:
-        while True:
-            try:
-                top_gainers, top_losers = get_top_gainers_losers()
-                top_funding_rates = get_top_funding_rates()
-                if top_gainers is None or top_losers is None:
-                    print("Error: get_top_gainers_losers returned None.")
-                    continue
-                with ThreadPoolExecutor(max_workers=10) as executor:
-                    futures = []
-                    for pair in usdt_pairs:
-                        future = executor.submit(
-                            update_price_funding,
-                            pair,
-                            top_gainers,
-                            top_losers,
-                            top_funding_rates,
-                        )
-                        futures.append(future)
+    try:
+        top_gainers, top_losers = get_top_gainers_losers()
+        top_funding_rates = get_top_funding_rates()
+        if top_gainers is None or top_losers is None:
+            print("Error: get_top_gainers_losers returned None.")
+            return
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = []
+            for pair in usdt_pairs:
+                future = executor.submit(
+                    update_price_funding,
+                    pair,
+                    top_gainers,
+                    top_losers,
+                    top_funding_rates,
+                )
+                futures.append(future)
 
-                    for future in futures:
-                        try:
-                            future.result()  # Wait for the task to complete
-                        except Exception as e:
-                            logging.error("Error in thread:", exc_info=e)
-                send_top_gainers_losers_to_slack(top_gainers, top_losers)
-                send_top_funding_rates_to_slack(top_funding_rates)
-                # Sleep for 1 minute before checking again
-                time.sleep(1)
-            except Exception as e:
-                error_message = f"main_15m :: Error fetching data for {e}"
-                logging.exception(error_message)
-                time.sleep(1)
-        pass
+            for future in futures:
+                try:
+                    future.result()  # Wait for the task to complete
+                except Exception as e:
+                    logging.error("Error in thread:", exc_info=e)
+        send_top_gainers_losers_to_slack(top_gainers, top_losers)
+        send_top_funding_rates_to_slack(top_funding_rates)
+    except Exception as e:
+        error_message = f"main_15m :: Error fetching data for {e}"
+        logging.exception(error_message)
 
 # Function to update price and funding rate for a single pair
 def update_price_funding(pair, top_gainers, top_losers, top_funding_rates):
