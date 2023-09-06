@@ -1,6 +1,5 @@
 import time
 from datetime import datetime
-import schedule
 from concurrent.futures import ThreadPoolExecutor
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
@@ -10,7 +9,6 @@ from ta.momentum import RSIIndicator
 from ta.trend import MACD
 import threading
 import requests
-import concurrent.futures
 import logging
 
 
@@ -30,8 +28,6 @@ secret_key = config["Binance"]["YOUR_BINANCE_SECRET_KEY"]
 last_closing_prices = {}
 
 # Function to get the list of trading pairs with USDT as the quote currency from Binance
-
-
 def get_usdt_pairs():
     url = "https://api.binance.com/api/v3/exchangeInfo"
     response = requests.get(url)
@@ -61,8 +57,6 @@ def get_usdt_pairs():
 
 
 # Function to send a notification to the Slack channel
-
-
 def send_slack_notification(channel, alert_type, pair, *args):
     try:
         # Trim trailing zeros from price and volume values

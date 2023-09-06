@@ -20,9 +20,6 @@ import logging
 config = configparser.ConfigParser()
 config.read("config.ini")
 
-interval_15M = int(config["Schedule"]["interval_15M"])
-interval_4H = int(config["Schedule"]["interval_4H"])
-
 # Replace 'YOUR_SLACK_API_TOKEN' with your actual Slack API token
 slack_token = config["Slack"]["slack_token"]
 slack_client = WebClient(token=slack_token)
