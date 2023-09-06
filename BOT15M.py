@@ -8,8 +8,6 @@ import configparser
 import pandas as pd
 from ta.momentum import RSIIndicator
 from ta.trend import MACD
-import hmac
-import hashlib
 import threading
 import requests
 import concurrent.futures
@@ -18,7 +16,7 @@ import logging
 
 # Load configuration from config.ini
 config = configparser.ConfigParser()
-config.read("config.ini")
+config.read("/home/hellojack13579/BotAPP/config.ini")
 
 # Replace 'YOUR_SLACK_API_TOKEN' with your actual Slack API token
 slack_token = config["Slack"]["slack_token"]
