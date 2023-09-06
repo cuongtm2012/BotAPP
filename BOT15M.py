@@ -318,48 +318,36 @@ def main_15m(usdt_pairs):
     with lock:
         while True:
             try:
-                current_utc_minute = int(time.strftime("%M", time.gmtime()))
+                top_gainers, top_losers = get_top_gainers_losers()
+                top_funding_rates = get_top_funding_rates()
+                if top_gainers is None or top_losers is None:
+                    print("Error: get_top_gainers_losers returned None.")
+                    continue
+                with ThreadPoolExecutor(max_workers=10) as executor:
+                    futures = []
+                    for pair in usdt_pairs:
+                        future = executor.submit(
+                            update_price_funding,
+                            pair,
+                            top_gainers,
+                            top_losers,
+                            top_funding_rates,
+                        )
+                        futures.append(future)
 
-                # Check if the current minute is one of the specified minutes
-                if current_utc_minute in [0, 15, 30, 45]:
-                    print(
-                        f"Updating prices at {time.strftime('%Y-%m-%d %H:%M:%S %Z', time.gmtime())}"
-                    )
-
-                    top_gainers, top_losers = get_top_gainers_losers()
-                    top_funding_rates = get_top_funding_rates()
-                    if top_gainers is None or top_losers is None:
-                        print("Error: get_top_gainers_losers returned None.")
-                        continue
-                    with ThreadPoolExecutor(max_workers=10) as executor:
-                        futures = []
-                        for pair in usdt_pairs:
-                            future = executor.submit(
-                                update_price_funding,
-                                pair,
-                                top_gainers,
-                                top_losers,
-                                top_funding_rates,
-                            )
-                            futures.append(future)
-
-                        for future in futures:
-                            try:
-                                future.result()  # Wait for the task to complete
-                            except Exception as e:
-                                logging.error("Error in thread:", exc_info=e)
-
-                    send_top_gainers_losers_to_slack(top_gainers, top_losers)
-                    send_top_funding_rates_to_slack(top_funding_rates)
-
-                    print("15M update completed.")
-
+                    for future in futures:
+                        try:
+                            future.result()  # Wait for the task to complete
+                        except Exception as e:
+                            logging.error("Error in thread:", exc_info=e)
+                send_top_gainers_losers_to_slack(top_gainers, top_losers)
+                send_top_funding_rates_to_slack(top_funding_rates)
                 # Sleep for 1 minute before checking again
-                time.sleep(60)
+                time.sleep(1)
             except Exception as e:
                 error_message = f"main_15m :: Error fetching data for {e}"
                 logging.exception(error_message)
-                time.sleep(60)
+                time.sleep(1)
         pass
 
 # Function to update price and funding rate for a single pair
@@ -384,11 +372,4 @@ def update_price_funding(pair, top_gainers, top_losers, top_funding_rates):
 # Get the list of USDT pairs
 usdt_pairs, _ = get_usdt_pairs()
 
-# Schedule the main_15m function to run every minute
-schedule.every().minute.do(main_15m, usdt_pairs)
-
-# Start the scheduling loop
-while True:
-    schedule.run_pending()
-    time.sleep(1)
-
+main_15m(usdt_pairs)

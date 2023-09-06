@@ -188,21 +188,15 @@ def main_1h(usdt_pairs):
                     if price_1h is not None:
                         print(f"{pair} - 1H Close Price: {price_1h}")
                 print("get_price_1H update completed.")
-                time.sleep(3600)
+                time.sleep(1)
             except Exception as e:
                 error_message = f"main_1h :: Error fetching data for {e}"
                 logging.exception(error_message)
-                time.sleep(3600)
+                time.sleep(1)
 
 
 # Get the list of USDT pairs
 usdt_pairs, _ = get_usdt_pairs()
 
-# Schedule the main_1h function to run at the 55th minute of every hour
-schedule.every(1).hour.do(main_1h, usdt_pairs)
-
-# Start the scheduling loop
-while True:
-    schedule.run_pending()
-    time.sleep(1)
-
+# Run the main_1h function immediately and then every 1 hour
+main_1h(usdt_pairs)

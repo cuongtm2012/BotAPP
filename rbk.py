@@ -20,7 +20,6 @@ slack_client = WebClient(token=slack_token)
 
 # Define the variable to store message content
 message_content = ""
-output_to_send = ""
 
 # Function to send a message to Slack
 def send_to_slack(message):
@@ -28,6 +27,7 @@ def send_to_slack(message):
 
 
 def run_and_send_to_slack():
+    output_to_send = ""
     global message_content
     try:
         with open("0x_numbers.txt", "a", encoding="utf-8") as file:
@@ -57,11 +57,9 @@ def run_and_send_to_slack():
                 total_unique_numbers = len(unique_numbers_set)
                 
                 output_to_send += f"Today Date : {today_date}\n"
-                output_to_send += f"Unique Numbers RBK: {formatted_output}\n"
-                output_to_send += f"Total Unique Numbers RBK: {total_unique_numbers}\n"
+                output_to_send += f"Unique Numbers RBK [{total_unique_numbers}] : {formatted_output}\n"
                 file.write("Today Date : " + today_date + "\n")
-                file.write("Unique Numbers RBK: " + formatted_output + "\n")
-                file.write("Total Unique Numbers RBK: " + str(total_unique_numbers) + "\n")            
+                file.write("Unique Numbers RBK: " + formatted_output + "\n")           
             else:
                 print(
                     f"Failed to fetch data from {url}. Status code: {response.status_code}")
@@ -315,9 +313,5 @@ def run_and_send_to_slack():
         error_message = f"An error occurred: {e}"
         send_to_slack(error_message)
 
-schedule.every().day.at("17:00").do(run_and_send_to_slack)
 
-# Infinite loop to keep the script running
-while True:
-    schedule.run_pending()
-    t.sleep(60)
+run_and_send_to_slack()
