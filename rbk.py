@@ -11,7 +11,8 @@ from collections import Counter
 
 # Load configuration from config.ini
 config = configparser.ConfigParser()
-config.read("config.ini")
+# config.read("config.ini")
+config.read("/home/hellojack13579/BotAPP/config.ini")
 
 # Initialize the Slack WebClient with your Slack app's token
 slack_token = config["Slack"]["slack_token"]
