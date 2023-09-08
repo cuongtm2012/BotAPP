@@ -154,18 +154,18 @@ def get_price(pair):
             volume_str = f"{current_volume:.2f}".rstrip("0").rstrip(".")
 
             percentage_change = ((close_price - open_price) / open_price) * 100
-            if abs(percentage_change) > 1.5 and previous_volume > 100000 and current_volume > previous_volume * 2:
+            if abs(percentage_change) > 1.5 and previous_volume > 50000 and current_volume > previous_volume:
                 send_slack_notification("#break_out", "BREAK_OUT", "", pair, close_price_str, open_price_str)
                 
             close_price_break = [float(candle[4]) for candle in data[-24:-1]]  # Get the close prices of the last 30 candles
             current_open_price_break = float(data[-1][1])
             current_close_price_break = float(data[-1][4])
 
-            if current_close_price_break > max(close_price_break) > current_open_price_break and current_volume > previous_volume * 2 and previous_volume > 100000:
+            if current_close_price_break > max(close_price_break) > current_open_price_break and current_volume > previous_volume and previous_volume > 50000:
                 # Current close price is higher than the maximum close price of the last 30 candles
                 print(f"{pair} - 15M: Close Price: {current_close_price_break}, Action: BUY - Entry : {max(close_price_break)}")
                 send_slack_notification("#break_out", "BUY_SIGNAL", "", pair, close_price_str, open_price_str)
-            elif current_close_price_break < min(close_price_break) < current_open_price_break and current_volume > previous_volume * 2 and previous_volume > 100000:
+            elif current_close_price_break < min(close_price_break) < current_open_price_break and current_volume > previous_volume and previous_volume > 50000:
                 # Current close price is lower than the minimum close price of the last 30 candles
                 print(f"{pair} - 15M: Close Price: {current_close_price_break}, Action: SELL - Entry : {min(close_price_break)}")
                 send_slack_notification("#break_out", "SELL_SIGNAL", "", pair, close_price_str, open_price_str)
