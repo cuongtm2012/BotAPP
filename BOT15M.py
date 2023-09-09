@@ -125,11 +125,11 @@ def get_price(pair):
             previous_volume = float(data[-2][5])
 
             percentage_change = ((close_price - open_price) / open_price) * 100
-            if abs(percentage_change) > 1.5 and previous_volume > 50000 and current_volume > previous_volume:
+            if previous_volume > 50000 and current_volume > previous_volume * 1.5:
                 send_message = f"ALERT: {pair} - Changed {percentage_change:.2f}% !"
                 send_slack_notification("#break_out", "BREAK_OUT", pair, send_message)
                 
-            close_price_break = [float(candle[4]) for candle in data[-36:-1]]  # Get the close prices of the last 30 candles
+            close_price_break = [float(candle[4]) for candle in data[-24:-1]]  # Get the close prices of the last 30 candles
 
             if close_price > max(close_price_break) > open_price and current_volume > previous_volume and previous_volume > 100000:
                 # Current close price is higher than the maximum close price of the last 30 candles

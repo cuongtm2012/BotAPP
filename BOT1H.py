@@ -13,8 +13,8 @@ import logging
 
 # Load configuration from config.ini
 config = configparser.ConfigParser()
-config.read("/home/hellojack13579/BotAPP/config.ini")
-# config.read("config.ini")
+# config.read("/home/hellojack13579/BotAPP/config.ini")
+config.read("config.ini")
 
 # Replace 'YOUR_SLACK_API_TOKEN' with your actual Slack API token
 slack_token = config["Slack"]["slack_token"]
@@ -29,7 +29,7 @@ last_closing_prices = {}
 
 # Function to get the list of trading pairs with USDT as the quote currency from Binance
 def get_usdt_pairs():
-    url = "https://api.binance.com/api/v3/exchangeInfo"
+    url = "https://fapi.binance.com/fapi/v1/exchangeInfo"
     response = requests.get(url)
 
     if response.status_code == 200:
@@ -39,42 +39,26 @@ def get_usdt_pairs():
             for symbol in data["symbols"]
             if "contractType" in symbol and symbol["contractType"] == "PERPETUAL"
         }
-        usdt_pairs = [
-            symbol["symbol"] for symbol in data["symbols"] if "USDT" in symbol["symbol"]
-        ]
-
+        # Initialize usdt_pairs here
+        usdt_pairs = []
         excluded_pairs = [
             pair
             for pair in usdt_pairs
             if pair.endswith("UPUSDT") or pair.endswith("DOWNUSDT")
         ]
-        usdt_pairs = [pair for pair in usdt_pairs if pair not in excluded_pairs]
+        usdt_pairs = [pair for pair in future_pairs if pair not in excluded_pairs]
 
-        return usdt_pairs, future_pairs
+        return usdt_pairs
     else:
         print(f"Failed to fetch data. Status code: {response.status_code}")
         return []
 
 
 # Function to send a notification to the Slack channel
-def send_slack_notification(channel, alert_type, pair, *args):
+def send_slack_notification(channel, send_message):
     try:
-        # Trim trailing zeros from price and volume values
-        formatted_args = []
-
-        for arg in args:
-            if isinstance(arg, (float, int)):
-                formatted_args.append(f"{arg:.8f}".rstrip("0").rstrip("."))
-            elif isinstance(arg, str):
-                formatted_args.append(arg)
-            else:
-                formatted_args.append(str(arg))
-        if alert_type == "BUY_SIGNAL":
-            message = f"+ BUY SIGNAL 1H: {pair} - EMA12 crossover EMA26"
-        elif alert_type == "SELL_SIGNAL":
-            message = f"- SELL SIGNAL 1H: {pair} - EMA12 crossover EMA26"
-        response = slack_client.chat_postMessage(channel=channel, text=message)
-        assert response["message"]["text"] == message
+        response = slack_client.chat_postMessage(channel=channel, text=send_message)
+        assert response["message"]["text"] == send_message
     except Exception as e:
         error_message = f"Failed to send Slack notification: {e}"
         logging.exception(error_message)
@@ -116,49 +100,21 @@ def get_price_1H(pair):
             return
 
         url = "https://api.binance.com/api/v3/klines"
-        params = {"symbol": pair, "interval": "1h", "limit": 10}
+        params = {"symbol": pair, "interval": "1h", "limit": 100}
         response = requests.get(url, params=params)
 
         if response.status_code == 200:
             data = response.json()
-            # print(f"Starting run get_price_1H {data}")
 
-            # Convert data to DataFrame with appropriate data types
-            df = pd.DataFrame(
-                data,
-                columns=[
-                    "timestamp",
-                    "open",
-                    "high",
-                    "low",
-                    "close",
-                    "volume",
-                    "close_time",
-                    "quote_asset_volume",
-                    "number_of_trades",
-                    "taker_buy_base_asset_volume",
-                    "taker_buy_quote_asset_volume",
-                    "ignore",
-                ],
-            )
-            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-            df["open"] = df["open"].astype(float)
-            df["high"] = df["high"].astype(float)
-            df["low"] = df["low"].astype(float)
-            df["close"] = df["close"].astype(float)
-            df["volume"] = pd.to_numeric(df["volume"])
+            # Extract OHLCV data from the response
+            open_price = float(data[-1][1])
+            close_price = float(data[-1][4])
+            current_volume = float(data[-1][5])
+            previous_volume = float(data[-2][5])
 
-            current_volume = df["volume"].iloc[-1]
-            if current_volume > 100000:
-                # Calculate EMA12 and EMA26
-                ema12 = df["close"].ewm(span=12, adjust=False).mean()
-                ema26 = df["close"].ewm(span=26, adjust=False).mean()
-
-                # Check EMA crossover strategy
-                if ema12.iloc[-1] > ema26.iloc[-1] and ema12.iloc[-2] <= ema26.iloc[-2]:
-                    send_slack_notification("#trading_signal", "BUY_SIGNAL", pair, "", "")
-                elif (ema12.iloc[-1] < ema26.iloc[-1] and ema12.iloc[-2] >= ema26.iloc[-2]):
-                    send_slack_notification("#trading_signal", "SELL_SIGNAL", pair, "", "")
+            if previous_volume > 50000 and current_volume > previous_volume * 2:
+                send_message = f"{pair} - 1H: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}";
+                send_slack_notification("#break_out", send_message)
         else:
             print(
                 f"Failed to fetch data for {pair}. Status code: {response.status_code}"
@@ -182,7 +138,7 @@ def main_1h(usdt_pairs):
 
 
 # Get the list of USDT pairs
-usdt_pairs, _ = get_usdt_pairs()
+usdt_pairs = get_usdt_pairs()
 
 # Run the main_1h function immediately and then every 1 hour
 main_1h(usdt_pairs)
