@@ -161,13 +161,13 @@ def get_price(pair):
             current_open_price_break = float(data[-1][1])
             current_close_price_break = float(data[-1][4])
 
-            if current_close_price_break > max(close_price_break) > current_open_price_break and current_volume > previous_volume and previous_volume > 50000:
+            if current_close_price_break > max(close_price_break) > current_open_price_break:
                 # Current close price is higher than the maximum close price of the last 30 candles
-                print(f"{pair} - 15M: Close Price: {current_close_price_break}, Action: BUY - Entry : {max(close_price_break)}")
+                print(f"{pair} - 15M: Close Price: {current_close_price_break}, Action: BUY - Entry : {max(close_price_break)}, current_volume : {current_volume}, previous_volume : {previous_volume}")
                 send_slack_notification("#break_out", "BUY_SIGNAL", "", pair, close_price_str, open_price_str)
-            elif current_close_price_break < min(close_price_break) < current_open_price_break and current_volume > previous_volume and previous_volume > 50000:
+            elif current_close_price_break < min(close_price_break) < current_open_price_break:
                 # Current close price is lower than the minimum close price of the last 30 candles
-                print(f"{pair} - 15M: Close Price: {current_close_price_break}, Action: SELL - Entry : {min(close_price_break)}")
+                print(f"{pair} - 15M: Close Price: {current_close_price_break}, Action: SELL - Entry : {min(close_price_break)}, current_volume : {current_volume}, previous_volume : {previous_volume}")
                 send_slack_notification("#break_out", "SELL_SIGNAL", "", pair, close_price_str, open_price_str)
 
             try:
