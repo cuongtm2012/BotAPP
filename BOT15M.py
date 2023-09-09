@@ -16,8 +16,8 @@ import logging
 
 # Load configuration from config.ini
 config = configparser.ConfigParser()
-# config.read("config.ini")
-config.read("/home/hellojack13579/BotAPP/config.ini")
+config.read("config.ini")
+# config.read("/home/hellojack13579/BotAPP/config.ini")
 
 # Replace 'YOUR_SLACK_API_TOKEN' with your actual Slack API token
 slack_token = config["Slack"]["slack_token"]
@@ -64,34 +64,10 @@ def get_usdt_pairs():
 # Function to send a notification to the Slack channel
 
 
-def send_slack_notification(channel, alert_type, pair, *args):
+def send_slack_notification(channel, alert_type, pair, send_message):
     try:
-        # Trim trailing zeros from price and volume values
-        formatted_args = []
-
-        for arg in args:
-            if isinstance(arg, (float, int)):
-                formatted_args.append(f"{arg:.8f}".rstrip("0").rstrip("."))
-            elif isinstance(arg, str):
-                formatted_args.append(arg)
-            else:
-                formatted_args.append(str(arg))
-        if alert_type == "BREAK_OUT":
-            pair, high_price, low_price = formatted_args
-            percentage_change = ((float(high_price) - float(low_price)) / float(low_price)) * 100
-            message = f"ALERT: {pair} - Highest price {high_price} is {percentage_change:.2f}% higher than the lowest price {low_price}!"
-        elif alert_type == "VOLUME_UP":
-            current_volume, previous_volume = formatted_args
-            percentage_change = ((float(current_volume) - float(previous_volume))/ float(previous_volume)) * 100
-            message = f"ALERT: {pair} - Volume {current_volume} is {percentage_change:.2f}% higher than the previous volume {previous_volume}!"
-        elif alert_type == "BUY_SIGNAL":
-            pair, close_price, open_price = formatted_args
-            message = f"+ BUY SIGNAL 15M: {pair} - Entry Price: {open_price}"
-        elif alert_type == "SELL_SIGNAL":
-            pair, close_price, open_price = formatted_args
-            message = f"+ BUY SIGNAL 15M: {pair} - Entry Price: {open_price}"
-        response = slack_client.chat_postMessage(channel=channel, text=message)
-        assert response["message"]["text"] == message
+        response = slack_client.chat_postMessage(channel=channel, text=send_message)
+        assert response["message"]["text"] == send_message
     except Exception as e:
         error_message = f"Failed to send Slack notification: {e}"
         logging.exception(error_message)
@@ -155,20 +131,21 @@ def get_price(pair):
 
             percentage_change = ((close_price - open_price) / open_price) * 100
             if abs(percentage_change) > 1.5 and previous_volume > 50000 and current_volume > previous_volume:
-                send_slack_notification("#break_out", "BREAK_OUT", "", pair, close_price_str, open_price_str)
+                send_message = f"ALERT: {pair} - Changed {percentage_change:.2f}% !"
+                send_slack_notification("#break_out", "BREAK_OUT", pair, send_message)
                 
             close_price_break = [float(candle[4]) for candle in data[-24:-1]]  # Get the close prices of the last 30 candles
-            current_open_price_break = float(data[-1][1])
-            current_close_price_break = float(data[-1][4])
 
-            if current_close_price_break > max(close_price_break) > current_open_price_break:
+            if close_price > max(close_price_break) > open_price and current_volume > previous_volume and previous_volume > 100000:
                 # Current close price is higher than the maximum close price of the last 30 candles
-                print(f"{pair} - 15M: Close Price: {current_close_price_break}, Action: BUY - Entry : {max(close_price_break)}, current_volume : {current_volume}, previous_volume : {previous_volume}")
-                send_slack_notification("#break_out", "BUY_SIGNAL", "", pair, close_price_str, open_price_str)
-            elif current_close_price_break < min(close_price_break) < current_open_price_break:
+                # print(f"{pair} - 15M: Close Price: {current_close_price_break}, Action: BUY - Entry : {max(close_price_break)}, current_volume : {current_volume}, previous_volume : {previous_volume}")
+                send_message = f"{pair} - 15M: Close Price: {close_price}, Action: BUY - Entry : {max(close_price_break)}, current_volume : {current_volume}, previous_volume : {previous_volume}";
+                send_slack_notification("#break_out", "BUY_SIGNAL", pair, send_message)
+            elif close_price < min(close_price_break) < open_price and current_volume > previous_volume  and previous_volume > 100000:
                 # Current close price is lower than the minimum close price of the last 30 candles
-                print(f"{pair} - 15M: Close Price: {current_close_price_break}, Action: SELL - Entry : {min(close_price_break)}, current_volume : {current_volume}, previous_volume : {previous_volume}")
-                send_slack_notification("#break_out", "SELL_SIGNAL", "", pair, close_price_str, open_price_str)
+                # print(f"{pair} - 15M: Close Price: {current_close_price_break}, Action: SELL - Entry : {min(close_price_break)}, current_volume : {current_volume}, previous_volume : {previous_volume}")
+                send_message = f"{pair} - 15M: Close Price: {close_price}, Action: SELL - Entry : {max(close_price_break)}, current_volume : {current_volume}, previous_volume : {previous_volume}";
+                send_slack_notification("#break_out", "SELL_SIGNAL", pair, send_message)
 
             try:
                 funding_rate = get_funding_rate(pair)
