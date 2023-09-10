@@ -34,7 +34,7 @@ last_closing_prices = {}
 
 
 def get_usdt_pairs():
-    url = "https://api.binance.com/api/v3/exchangeInfo"
+    url = "https://fapi.binance.com/fapi/v1/exchangeInfo"
     response = requests.get(url)
 
     if response.status_code == 200:
@@ -44,25 +44,18 @@ def get_usdt_pairs():
             for symbol in data["symbols"]
             if "contractType" in symbol and symbol["contractType"] == "PERPETUAL"
         }
+        # Initialize usdt_pairs here
+        usdt_pairs = []
+        excluded_suffixes = ["UPUSDT", "DOWNUSDT", "BUSD"]
         usdt_pairs = [
-            symbol["symbol"] for symbol in data["symbols"] if "USDT" in symbol["symbol"]
-        ]
-
-        excluded_pairs = [
             pair
-            for pair in usdt_pairs
-            if pair.endswith("UPUSDT") or pair.endswith("DOWNUSDT")
+            for pair in future_pairs
+            if not any(pair.endswith(suffix) for suffix in excluded_suffixes)
         ]
-        usdt_pairs = [pair for pair in usdt_pairs if pair not in excluded_pairs]
-
-        return usdt_pairs, future_pairs
+        return usdt_pairs
     else:
         print(f"Failed to fetch data. Status code: {response.status_code}")
         return []
-
-
-# Function to send a notification to the Slack channel
-
 
 def send_slack_notification(channel, alert_type, pair, send_message):
     try:
@@ -89,9 +82,7 @@ def get_funding_rate(pair):
                 print(f"No funding rate data available for {pair}.")
                 return None
         else:
-            print(
-                f"Failed to fetch funding rate for {pair}. Status code: {response.status_code}"
-            )
+            print(f"Failed to fetch funding rate for {pair}. Status code: {response.status_code}")
             return None
     except Exception as e:
         error_message = f"Error fetching funding rate for {e}"
@@ -109,7 +100,7 @@ def get_price(pair):
         return None, None  # Return None for both percentage_change and funding_rate
 
     url = "https://api.binance.com/api/v3/klines"
-    params = {"symbol": pair, "interval": "15m", "limit": 100}
+    params = {"symbol": pair, "interval": "15m", "limit": 30}
     response = requests.get(url, params=params)
 
     try:
@@ -124,11 +115,10 @@ def get_price(pair):
 
             percentage_change = ((close_price - open_price) / open_price) * 100
             percentage_change_vol = ((current_volume - previous_volume) / previous_volume) * 100
-            if  current_volume > previous_volume > 100000:
+            if  current_volume > previous_volume > 100000 and percentage_change_vol > 100 and abs(percentage_change) > 0.1:
                 send_message = f"{pair} - 15M: - Changed price {percentage_change:.2f}% - - Changed volume {percentage_change_vol:.2f}%!"
                 send_slack_notification("#volume_up", "VOLUME_UP", pair, send_message)
-                
-            close_price_break = [float(candle[4]) for candle in data[-24:-1]]  # Get the close prices of the last 30 candles
+            close_price_break = [float(candle[4]) for candle in data[-24:-1]]  
 
             if close_price > max(close_price_break) > open_price and current_volume > previous_volume and previous_volume > 100000:
                 send_message = f"{pair} - 15M: Close Price: {close_price}, Action: BUY - Entry : {max(close_price_break)}, current_volume : {current_volume}, previous_volume : {previous_volume}";
@@ -143,14 +133,10 @@ def get_price(pair):
                     send_funding_rates_break_out(pair, str(funding_rate))
             except Exception as e:
                 print(f"Error in get_funding_rate: {e}")
-
             return percentage_change, funding_rate
         else:
-            print(
-                f"Failed to fetch data for {pair}. Status code: {response.status_code}"
-            )
+            print(f"Failed to fetch data for {pair}. Status code: {response.status_code}")
             return None, None  # Return None for both percentage_change and funding_rate
-
     except Exception as e:
         error_message = f"Error in get_price: {e}"
         logging.exception(error_message)
@@ -170,9 +156,7 @@ def send_top_gainers_losers_to_slack(top_gainers, top_losers):
         message += f"{idx}. {pair} || {percentage_change:.2f}%\n"
 
     try:
-        response = slack_client.chat_postMessage(
-            channel="#top5_gain_loss", text=message
-        )
+        response = slack_client.chat_postMessage(channel="#top5_gain_loss", text=message)
         assert response["message"]["text"] == message
         print("Top gainers and losers list sent successfully to Slack.")
     except SlackApiError as e:
@@ -187,9 +171,7 @@ def send_top_funding_rates_to_slack(top_funding_rates):
         message += f"{idx}. {pair} || Funding Rate: {funding_rate:.8f}\n"
 
     try:
-        response = slack_client.chat_postMessage(
-            channel="#top5_gain_loss", text=message
-        )
+        response = slack_client.chat_postMessage(channel="#top5_gain_loss", text=message)
         assert response["message"]["text"] == message
         print("Top 10 highest funding rates sent successfully to Slack.")
     except SlackApiError as e:
@@ -197,13 +179,9 @@ def send_top_funding_rates_to_slack(top_funding_rates):
 
 
 def send_funding_rates_break_out(pair, funding_rate):
-    message = (
-        f"Pair with urgent Funding Rates: {pair} || Funding Rate: {funding_rate}\n"
-    )
+    message = (f"Pair with urgent Funding Rates: {pair} || Funding Rate: {funding_rate}\n")
     try:
-        response = slack_client.chat_postMessage(
-            channel="#top5_gain_loss", text=message
-        )
+        response = slack_client.chat_postMessage(channel="#top5_gain_loss", text=message)
         assert response["message"]["text"] == message
         print("High funding rates sent successfully to Slack.")
     except SlackApiError as e:
@@ -233,12 +211,8 @@ def get_top_gainers_losers():
                 logging.exception(error_message)
 
     # Sort the dictionaries by percentage change (absolute value)
-    top_gainers = dict(
-        sorted(top_gainers.items(), key=lambda item: abs(item[1]), reverse=True)[:5]
-    )
-    top_losers = dict(
-        sorted(top_losers.items(), key=lambda item: abs(item[1]), reverse=True)[:5]
-    )
+    top_gainers = dict(sorted(top_gainers.items(), key=lambda item: abs(item[1]), reverse=True)[:5])
+    top_losers = dict(sorted(top_losers.items(), key=lambda item: abs(item[1]), reverse=True)[:5])
 
     return top_gainers, top_losers
 
@@ -316,6 +290,6 @@ def update_price_funding(pair, top_gainers, top_losers, top_funding_rates):
 
 
 # Get the list of USDT pairs
-usdt_pairs, _ = get_usdt_pairs()
+usdt_pairs = get_usdt_pairs()
 
 main_15m(usdt_pairs)

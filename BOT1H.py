@@ -13,8 +13,8 @@ import logging
 
 # Load configuration from config.ini
 config = configparser.ConfigParser()
-config.read("/root/BotAPP/config.ini")
-# config.read("config.ini")
+# config.read("/root/BotAPP/config.ini")
+config.read("config.ini")
 
 # Replace 'YOUR_SLACK_API_TOKEN' with your actual Slack API token
 slack_token = config["Slack"]["slack_token"]
@@ -113,9 +113,7 @@ def get_price_1H(pair):
                 send_message = f"{pair} - 1H: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change:.2f}%, volume_change : {percentage_change_vol:.2f}%";
                 send_slack_notification("#break_out", send_message)
         else:
-            print(
-                f"Failed to fetch data for {pair}. Status code: {response.status_code}"
-            )
+            print(f"Failed to fetch data for {pair}. Status code: {response.status_code}")
             return None
     except Exception as e:
         error_message = f"get_price_1H :: Error in get_price: {e}"
