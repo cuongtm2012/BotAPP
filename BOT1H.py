@@ -41,13 +41,12 @@ def get_usdt_pairs():
         }
         # Initialize usdt_pairs here
         usdt_pairs = []
-        excluded_pairs = [
+        excluded_suffixes = ["UPUSDT", "DOWNUSDT", "BUSD"]
+        usdt_pairs = [
             pair
-            for pair in usdt_pairs
-            if pair.endswith("UPUSDT") or pair.endswith("DOWNUSDT") or pair.endswith("BUSD")
+            for pair in future_pairs
+            if not any(pair.endswith(suffix) for suffix in excluded_suffixes)
         ]
-        usdt_pairs = [pair for pair in future_pairs if pair not in excluded_pairs]
-
         return usdt_pairs
     else:
         print(f"Failed to fetch data. Status code: {response.status_code}")
@@ -80,9 +79,7 @@ def get_funding_rate(pair):
                 print(f"No funding rate data available for {pair}.")
                 return None
         else:
-            print(
-                f"Failed to fetch funding rate for {pair}. Status code: {response.status_code}"
-            )
+            print(f"Failed to fetch funding rate for {pair}. Status code: {response.status_code}")
             return None
     except Exception as e:
         error_message = f"Error fetching funding rate for {e}"
@@ -92,9 +89,7 @@ def get_funding_rate(pair):
 
 def get_price_1H(pair):
     try:
-        blacklisted_pairs = [
-            pair.strip() for pair in config["Blacklist"]["blacklisted_pairs"].split(",")
-        ]
+        blacklisted_pairs = [pair.strip() for pair in config["Blacklist"]["blacklisted_pairs"].split(",")]
 
         if pair in blacklisted_pairs:
             return
@@ -114,7 +109,7 @@ def get_price_1H(pair):
 
             percentage_change = ((close_price - open_price) / open_price) * 100
             percentage_change_vol = ((current_volume - previous_volume) / previous_volume) * 100
-            if previous_volume > 50000 and current_volume > previous_volume * 2:
+            if previous_volume > 50000 and current_volume > previous_volume * 2 and abs(percentage_change) > 1:
                 send_message = f"{pair} - 1H: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change:.2f}%, volume_change : {percentage_change_vol:.2f}%";
                 send_slack_notification("#break_out", send_message)
         else:
