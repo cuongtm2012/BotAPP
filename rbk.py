@@ -11,8 +11,8 @@ from collections import Counter
 
 # Load configuration from config.ini
 config = configparser.ConfigParser()
-# config.read("config.ini")
-config.read("/home/hellojack13579/BotAPP/config.ini")
+config.read("config.ini")
+# config.read("/home/hellojack13579/BotAPP/config.ini")
 
 # Initialize the Slack WebClient with your Slack app's token
 slack_token = config["Slack"]["slack_token"]
@@ -60,7 +60,7 @@ def run_and_send_to_slack():
                 output_to_send += f"Today Date : {today_date}\n"
                 output_to_send += f"Unique Numbers RBK [{total_unique_numbers}] : {formatted_output}\n"
                 file.write("Today Date : " + today_date + "\n")
-                file.write("Unique Numbers RBK: " + formatted_output + "\n")           
+                file.write("Unique Numbers RBK: [" + total_unique_numbers + "]  : " + formatted_output + "\n")           
             else:
                 print(
                     f"Failed to fetch data from {url}. Status code: {response.status_code}")
@@ -148,8 +148,7 @@ def run_and_send_to_slack():
                     soup = BeautifulSoup(response.content, "html.parser")
 
                     # Find all "article" divs with the id starting with "post-"
-                    post_divs = soup.find_all(
-                        "li", class_="message", id=lambda value: value and value.startswith("post-"))
+                    post_divs = soup.find_all("li", class_="message", id=lambda value: value and value.startswith("post-"))
 
                     for idx, post in enumerate(post_divs, start=1):
                         message_content = post.find("div", class_="messageContent")
@@ -157,7 +156,6 @@ def run_and_send_to_slack():
                         data_author_value = post['data-author']
 
                         if message_content and message_meta and data_author_value != "quedau1981":
-                            content_text = message_content.get_text().strip()
                             meta_text = message_meta.get_text().strip()
                             
                             # Split the text into parts using comma and strip extra spaces
@@ -169,8 +167,7 @@ def run_and_send_to_slack():
                             time = date_time[2].split()[0]
 
                             # Construct the datetime object for the extracted date and time
-                            full_date_time = datetime.strptime(
-                                f"{date} {time}", "%d/%m/%y %H:%M")
+                            full_date_time = datetime.strptime(f"{date} {time}", "%d/%m/%y %H:%M")
 
                             # Calculate yesterday's date and time (18:30)
                             yesterday = datetime.now() - timedelta(days=1)
@@ -191,18 +188,30 @@ def run_and_send_to_slack():
                             # Compare and break if the condition is met
                             if full_date_time < target_time or full_date_time > full_today_date:
                                 continue
+                            # Extract the text content from the message_content div
+                            content_text = message_content.get_text(separator="\n").strip()
 
-                            # Filter out lines containing "Ngày"
-                            # Filter out lines containing date format
-                            date_formats = r'\d{1,2}[\/.-]\d{1,2}'
-                            content_lines = [line for line in content_text.split('\n') if "Ngày" not in line and not re.search(date_formats, line)]
+                           # Split the content by lines and remove empty lines
+                            lines = [line.strip() for line in content_text.split("\n") if line.strip()]
 
+                            # Find the index of the last line that starts with "9x"
+                            last_index_of_9x_line = None
+                            for i, line in enumerate(lines):
+                                if line.strip().startswith("9x"):
+                                    last_index_of_9x_line = i
 
-                            if "9x" in content_text and "Mức" not in content_text and "Dàn TH" not in content_text:
+                            if last_index_of_9x_line is not None:
+                                # Remove lines from the beginning to the last line starting with "9x"
+                                lines = lines[last_index_of_9x_line:]
+
+                                # Reconstruct the content_text with the remaining lines
+                                content_text = "\n".join(lines)
+
+                            if "9x\n" in content_text and "TH" not in content_text:
                                 with open("0x_numbers.txt", "a", encoding="utf-8") as file:
                                     file.write(f"Post {idx}:\n")
                                     file.write("Content:\n")
-                                    file.write('\n'.join(content_lines) + "\n")
+                                    file.write(content_text)
 
                                 with open("0x_numbers.txt", "a", encoding="utf-8") as file:   
                                     file.write(f"Author: {data_author_value}\n")
@@ -211,14 +220,12 @@ def run_and_send_to_slack():
                                     file.write("=" * 50 + "\n")
 
                                 # Use regular expression to find numbers between "0x" to end of content
-                                # pattern = r'\n([0-9/]*):?\s*0x\n(.*?)$'
-                                pattern = r'\n([0-9/]*):?\s*0x:?(\n.*?)$'
-                                matches = re.search(pattern, '\n'.join(content_lines), re.DOTALL)
+                                pattern = r'0x:?\n(.*?)$'
+                                matches = re.search(pattern, content_text, re.DOTALL)
 
                                 if matches:
                                     # Get the date prefix if present
-                                    date_prefix = matches.group(1)
-                                    numbers_string = matches.group(2)
+                                    numbers_string = matches.group(1)
                                     numbers_array = numbers_string.split(',')
 
                                     # Remove any leading or trailing spaces from the numbers
@@ -310,7 +317,7 @@ def run_and_send_to_slack():
         file.close()
         send_to_slack(output_to_send)
     except Exception as e:
-        print(f"An error occurred: {e} and content is {message_content}")
+        print(f"An error occurred: {e} and content is {content_text} and author is {data_author_value}")
         error_message = f"An error occurred: {e}"
         send_to_slack(error_message)
 
