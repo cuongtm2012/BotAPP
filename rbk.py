@@ -60,7 +60,7 @@ def run_and_send_to_slack():
                 output_to_send += f"Today Date : {today_date}\n"
                 output_to_send += f"Unique Numbers RBK [{total_unique_numbers}] : {formatted_output}\n"
                 file.write("Today Date : " + today_date + "\n")
-                file.write("Unique Numbers RBK: [" + total_unique_numbers + "]  : " + formatted_output + "\n")           
+                file.write("Unique Numbers RBK:" + formatted_output + "\n")           
             else:
                 print(
                     f"Failed to fetch data from {url}. Status code: {response.status_code}")
@@ -207,7 +207,7 @@ def run_and_send_to_slack():
                                 # Reconstruct the content_text with the remaining lines
                                 content_text = "\n".join(lines)
 
-                            if "9x\n" in content_text and "TH" not in content_text:
+                            if ("9x\n" in content_text or "(8 số)" in content_text or "(9 số)" in content_text) and "TH" not in content_text:
                                 with open("0x_numbers.txt", "a", encoding="utf-8") as file:
                                     file.write(f"Post {idx}:\n")
                                     file.write("Content:\n")
@@ -254,6 +254,29 @@ def run_and_send_to_slack():
 
                                 else:
                                     print("Pattern not found in input text.")
+                                    # Split the content by lines
+                                    lines = content_text.strip().split('\n')
+                                    # Get the last line
+                                    last_line = lines[-1].strip()
+                                    numbers_array = last_line.split(',')
+                                    # Remove any leading or trailing spaces from the numbers
+                                    numbers_array = [num.strip() for num in numbers_array]
+                                    # Join the numbers to form the desired string
+                                    numbers_string = ','.join(numbers_array)
+                                    with open("0x_numbers.txt", "a", encoding="utf-8") as file:
+                                        file.write(f"0x array: {numbers_string} \n")
+                                    # Count the occurrences of each number in the current post
+                                    num_counts = Counter(numbers_array)
+                                    # Update the appearing time of each number in the number_appearing_time dictionary
+                                    for num, count in num_counts.items():
+                                        if num not in number_appearing_time:
+                                            # Store the post index as appearing time
+                                            number_appearing_time[num] = idx
+                                    # Accumulate numbers from all articles
+                                    all_numbers_array.extend(numbers_array)
+                                    # Accumulate 0x numbers from all articles
+                                    all_0x_numbers_set.update(numbers_array)
+
                     # Move to the next page
                     page -= 1
                 else:
