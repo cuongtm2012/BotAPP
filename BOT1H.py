@@ -44,7 +44,7 @@ def get_usdt_pairs():
         excluded_pairs = [
             pair
             for pair in usdt_pairs
-            if pair.endswith("UPUSDT") or pair.endswith("DOWNUSDT")
+            if pair.endswith("UPUSDT") or pair.endswith("DOWNUSDT") or pair.endswith("BUSD")
         ]
         usdt_pairs = [pair for pair in future_pairs if pair not in excluded_pairs]
 
@@ -115,7 +115,7 @@ def get_price_1H(pair):
             percentage_change = ((close_price - open_price) / open_price) * 100
             percentage_change_vol = ((current_volume - previous_volume) / previous_volume) * 100
             if previous_volume > 50000 and current_volume > previous_volume * 2:
-                send_message = f"{pair} - 1H: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change}, price_change : {percentage_change_vol}";
+                send_message = f"{pair} - 1H: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change:.2f}%, volume_change : {percentage_change_vol:.2f}%";
                 send_slack_notification("#break_out", send_message)
         else:
             print(
