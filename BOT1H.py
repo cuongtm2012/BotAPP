@@ -112,8 +112,10 @@ def get_price_1H(pair):
             current_volume = float(data[-1][5])
             previous_volume = float(data[-2][5])
 
+            percentage_change = ((close_price - open_price) / open_price) * 100
+            percentage_change_vol = ((current_volume - previous_volume) / previous_volume) * 100
             if previous_volume > 50000 and current_volume > previous_volume * 2:
-                send_message = f"{pair} - 1H: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}";
+                send_message = f"{pair} - 1H: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change}, price_change : {percentage_change_vol}";
                 send_slack_notification("#break_out", send_message)
         else:
             print(
