@@ -87,6 +87,89 @@ def get_funding_rate(pair):
         return None
 
 
+def is_bearish_three_line_strike(data):
+    if len(data) < 5:
+        return False
+
+    # Extract OHLC data for the last five candles
+    candle1, candle2, candle3, candle4, candle5 = data[-5:]
+
+    # Check if candle1 is a long green (bullish) candle
+    if float(candle1[4]) <= float(candle1[1]):
+        return False
+
+    # Check if candle2 is a bearish candle opening and closing within candle1
+    if not (
+        float(candle2[4]) > float(candle2[1])
+        and float(candle2[1]) >= float(candle1[1])
+        and float(candle2[4]) <= float(candle1[4])
+    ):
+        return False
+
+    # Check if candle3 is a bearish candle opening below the low of candle2 and closing lower than the low of candle1
+    if not (
+        float(candle3[4]) > float(candle3[1])
+        and float(candle3[1]) < min(float(candle1[1]), float(candle2[1]))
+        and float(candle3[4]) < min(float(candle1[4]), float(candle2[4]))
+    ):
+        return False
+
+    # Check if candle4 is a bearish candle continuing the downtrend
+    if not (
+        float(candle4[4]) > float(candle4[1])
+        and float(candle4[1]) < float(candle3[4])
+        and float(candle4[4]) < float(candle3[1])
+    ):
+        return False
+
+    # Check if candle5 is a bearish candle continuing the downtrend
+    if float(candle5[4]) <= float(candle5[1]):
+        return False
+
+    return True
+
+
+def is_bullish_three_line_strike(data):
+    # Check if there are at least 4 candles (3 bearish + 1 bullish)
+    if len(data) < 4:
+        return False
+
+    # Check if the last three candles are bearish
+    if not all(candle[4] < candle[1] for candle in data[-3:]):
+        return False
+
+    # Check if the fourth candle is bullish
+    fourth_candle = data[-4]
+    if fourth_candle[4] > fourth_candle[1]:
+        return False
+
+    # Check if the opening price of the fifth candle is higher than the low of the third bearish candle
+    third_bearish_candle = data[-3]
+    fifth_candle = data[-1]
+    if fifth_candle[1] <= third_bearish_candle[3]:
+        return False
+
+    # Check if the closing price of the fifth candle is higher than the close of the first bearish candle
+    first_bearish_candle = data[-4]
+    if fifth_candle[4] < first_bearish_candle[4]:
+        return False
+
+    # If all conditions are met, it's a Bullish Three Line Strike pattern
+    return True
+
+
+def is_bullish_marubozu(data):
+    # Check if it's a bullish Marubozu
+    candle = data[-1]
+    return candle[3] - candle[2] < 0.001 and candle[1] - candle[0] < 0.001 and candle[4] - candle[0] > 0.001
+
+
+def is_bearish_marubozu(data):
+    # Check if it's a bearish Marubozu
+    candle = data[-1]
+    return candle[3] - candle[2] < 0.001 and candle[0] - candle[1] < 0.001 and candle[0] - candle[4] > 0.001
+
+
 def get_price_1H(pair):
     try:
         blacklisted_pairs = [pair.strip() for pair in config["Blacklist"]["blacklisted_pairs"].split(",")]
@@ -95,7 +178,7 @@ def get_price_1H(pair):
             return
 
         url = "https://api.binance.com/api/v3/klines"
-        params = {"symbol": pair, "interval": "1h", "limit": 100}
+        params = {"symbol": pair, "interval": "1h", "limit": 30}
         response = requests.get(url, params=params)
 
         if response.status_code == 200:
@@ -112,6 +195,27 @@ def get_price_1H(pair):
             if previous_volume > 50000 and current_volume > previous_volume * 2 and abs(percentage_change) > 1:
                 send_message = f"{pair} - 1H: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change:.2f}%, volume_change : {percentage_change_vol:.2f}%";
                 send_slack_notification("#break_out", send_message)
+
+            # Bearish three line strike
+            if is_bearish_three_line_strike(data):
+                send_message = f"{pair} - 1H : Bearish_Three_Line_Strike: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change:.2f}%, volume_change : {percentage_change_vol:.2f}%"
+                send_slack_notification("#trading_signal", send_message)
+
+            # Bullish three line strike
+            if is_bullish_three_line_strike(data):
+                send_message = f"{pair} - 1H : Bullish_Three_Line_Strike: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change:.2f}%, volume_change : {percentage_change_vol:.2f}%"
+                send_slack_notification("#trading_signal", send_message)
+
+            # Bearish three line strike
+            if is_bearish_three_line_strike(data):
+                send_message = f"{pair} - 1H : Bearish_Three_Line_Strike: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change:.2f}%, volume_change : {percentage_change_vol:.2f}%"
+                send_slack_notification("#trading_signal", send_message)
+
+            # test marubozu
+            if (is_bullish_marubozu(data) or is_bearish_marubozu(data)) and previous_volume > 50000 and current_volume > previous_volume:
+                send_message = f"{pair} - 1H : Marubozu: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change:.2f}%, volume_change : {percentage_change_vol:.2f}%"
+                send_slack_notification("#trading_signal", send_message)
+
         else:
             print(f"Failed to fetch data for {pair}. Status code: {response.status_code}")
             return None
