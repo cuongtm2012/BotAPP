@@ -115,16 +115,16 @@ def get_price(pair):
 
             percentage_change = ((close_price - open_price) / open_price) * 100
             percentage_change_vol = ((current_volume - previous_volume) / previous_volume) * 100
-            if  current_volume > previous_volume > 100000 and percentage_change_vol > 100 and abs(percentage_change) > 0.1:
+            if  current_volume > previous_volume > 20000 and percentage_change_vol > 60 and abs(percentage_change) > 3:
                 send_message = f"{pair} - 15M: - Changed price {percentage_change:.2f}% - - Changed volume {percentage_change_vol:.2f}%!"
                 send_slack_notification("#volume_up", "VOLUME_UP", pair, send_message)
             close_price_break = [float(candle[4]) for candle in data[-24:-1]]  
 
-            if close_price > max(close_price_break) > open_price and current_volume > previous_volume and previous_volume > 100000:
-                send_message = f"{pair} - 15M: Close Price: {close_price}, Action: BUY - Entry : {max(close_price_break)}, current_volume : {current_volume}, previous_volume : {previous_volume}";
+            if close_price > max(close_price_break) > open_price and current_volume > previous_volume and previous_volume > 20000:
+                send_message = f"{pair} - 15M: Close Price: {close_price}, Action: BUY - Entry : {max(close_price_break)}, volume_change : {percentage_change_vol:.2f}% , price_change: {percentage_change:.2f}%";
                 send_slack_notification("#break_out", "BUY_SIGNAL", pair, send_message)
-            elif close_price < min(close_price_break) < open_price and current_volume > previous_volume  and previous_volume > 100000:
-                send_message = f"{pair} - 15M: Close Price: {close_price}, Action: SELL - Entry : {max(close_price_break)}, current_volume : {current_volume}, previous_volume : {previous_volume}";
+            elif close_price < min(close_price_break) < open_price and current_volume > previous_volume  and previous_volume > 20000:
+                send_message = f"{pair} - 15M: Close Price: {close_price}, Action: SELL - Entry : {max(close_price_break)}, volume_change : {percentage_change_vol:.2f}%, price_change: {percentage_change:.2f}%";
                 send_slack_notification("#break_out", "SELL_SIGNAL", pair, send_message)
             try:
                 funding_rate = get_funding_rate(pair)
