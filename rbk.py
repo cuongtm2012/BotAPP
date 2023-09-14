@@ -226,7 +226,7 @@ def run_and_send_to_slack():
                                 if matches:
                                     # Get the date prefix if present
                                     numbers_string = matches.group(1)
-                                    numbers_array = numbers_string.split(',')
+                                    numbers_array = [num.strip() for num in numbers_string.split(',') if num.strip().isdigit()]
 
                                     # Remove any leading or trailing spaces from the numbers
                                     numbers_array = [num.strip() for num in numbers_array]
