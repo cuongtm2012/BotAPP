@@ -206,11 +206,6 @@ def get_price_1H(pair):
                 send_message = f"{pair} - 1H : Bullish_Three_Line_Strike: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change:.2f}%, volume_change : {percentage_change_vol:.2f}%"
                 send_slack_notification("#trading_signal", send_message)
 
-            # Bearish three line strike
-            if is_bearish_three_line_strike(data):
-                send_message = f"{pair} - 1H : Bearish_Three_Line_Strike: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change:.2f}%, volume_change : {percentage_change_vol:.2f}%"
-                send_slack_notification("#trading_signal", send_message)
-
             # test marubozu
             if (is_bullish_marubozu(data) or is_bearish_marubozu(data)) and previous_volume > 50000 and current_volume > previous_volume:
                 send_message = f"{pair} - 1H : Marubozu: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change:.2f}%, volume_change : {percentage_change_vol:.2f}%"
