@@ -8,6 +8,7 @@ import pandas as pd
 from ta.momentum import RSIIndicator
 from ta.trend import MACD
 import requests
+from Candlestick import CandlestickPattern
 import logging
 
 
@@ -86,90 +87,6 @@ def get_funding_rate(pair):
         logging.exception(error_message)
         return None
 
-
-def is_bearish_three_line_strike(data):
-    if len(data) < 5:
-        return False
-
-    # Extract OHLC data for the last five candles
-    candle1, candle2, candle3, candle4, candle5 = data[-5:]
-
-    # Check if candle1 is a long green (bullish) candle
-    if float(candle1[4]) <= float(candle1[1]):
-        return False
-
-    # Check if candle2 is a bearish candle opening and closing within candle1
-    if not (
-        float(candle2[4]) > float(candle2[1])
-        and float(candle2[1]) >= float(candle1[1])
-        and float(candle2[4]) <= float(candle1[4])
-    ):
-        return False
-
-    # Check if candle3 is a bearish candle opening below the low of candle2 and closing lower than the low of candle1
-    if not (
-        float(candle3[4]) > float(candle3[1])
-        and float(candle3[1]) < min(float(candle1[1]), float(candle2[1]))
-        and float(candle3[4]) < min(float(candle1[4]), float(candle2[4]))
-    ):
-        return False
-
-    # Check if candle4 is a bearish candle continuing the downtrend
-    if not (
-        float(candle4[4]) > float(candle4[1])
-        and float(candle4[1]) < float(candle3[4])
-        and float(candle4[4]) < float(candle3[1])
-    ):
-        return False
-
-    # Check if candle5 is a bearish candle continuing the downtrend
-    if float(candle5[4]) <= float(candle5[1]):
-        return False
-
-    return True
-
-
-def is_bullish_three_line_strike(data):
-    # Check if there are at least 4 candles (3 bearish + 1 bullish)
-    if len(data) < 4:
-        return False
-
-    # Check if the last three candles are bearish
-    if not all(candle[4] < candle[1] for candle in data[-3:]):
-        return False
-
-    # Check if the fourth candle is bullish
-    fourth_candle = data[-4]
-    if fourth_candle[4] > fourth_candle[1]:
-        return False
-
-    # Check if the opening price of the fifth candle is higher than the low of the third bearish candle
-    third_bearish_candle = data[-3]
-    fifth_candle = data[-1]
-    if fifth_candle[1] <= third_bearish_candle[3]:
-        return False
-
-    # Check if the closing price of the fifth candle is higher than the close of the first bearish candle
-    first_bearish_candle = data[-4]
-    if fifth_candle[4] < first_bearish_candle[4]:
-        return False
-
-    # If all conditions are met, it's a Bullish Three Line Strike pattern
-    return True
-
-
-def is_bullish_marubozu(data):
-    # Check if it's a bullish Marubozu
-    candle = data[-1]
-    return candle[3] - candle[2] < 0.001 and candle[1] - candle[0] < 0.001 and candle[4] - candle[0] > 0.001
-
-
-def is_bearish_marubozu(data):
-    # Check if it's a bearish Marubozu
-    candle = data[-1]
-    return candle[3] - candle[2] < 0.001 and candle[0] - candle[1] < 0.001 and candle[0] - candle[4] > 0.001
-
-
 def get_price_1H(pair):
     try:
         blacklisted_pairs = [pair.strip() for pair in config["Blacklist"]["blacklisted_pairs"].split(",")]
@@ -193,24 +110,69 @@ def get_price_1H(pair):
             percentage_change = ((close_price - open_price) / open_price) * 100
             percentage_change_vol = ((current_volume - previous_volume) / previous_volume) * 100
             if previous_volume > 50000 and percentage_change_vol > 200 and abs(percentage_change) > 1.5:
-                send_message = f"{pair} - 1H: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change:.2f}%, volume_change : {percentage_change_vol:.2f}%";
+                send_message = f"{pair} - [1H]: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change:.2f}%, volume_change : {percentage_change_vol:.2f}%";
                 send_slack_notification("#break_out", send_message)
 
-            # Bearish three line strike
-            if is_bearish_three_line_strike(data):
-                send_message = f"{pair} - 1H : Bearish_Three_Line_Strike: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change:.2f}%, volume_change : {percentage_change_vol:.2f}%"
-                send_slack_notification("#trading_signal", send_message)
+            # Candlestick pattern detection
+            candlestick_analyzer = CandlestickPattern()
+            is_dragonfly_doji = candlestick_analyzer.is_dragonfly_doji(data)
+            is_longleg_doji = candlestick_analyzer.is_longleg_doji(data)
+            is_hammer_hanging_man = candlestick_analyzer.is_hammer_hanging_man(data)
+            is_inv_hammer = candlestick_analyzer.is_inv_hammer(data)
+            is_spinning_top = candlestick_analyzer.is_spinning_top(data)
+            is_bull_marubozu, is_bear_marubozu = candlestick_analyzer.is_marubozu(data)
+            is_bull_engulf, is_bear_engulf = candlestick_analyzer.is_engulf(data)
+            is_sbull_engulf, is_sbear_engulf = candlestick_analyzer.is_engulfing(data)
+            is_bull_harami, is_bear_harami = candlestick_analyzer.is_harami(data)
+            is_dark_cloud_cover = candlestick_analyzer.is_dark_cloud_cover(data)
+            is_piercing_pattern = candlestick_analyzer.is_piercing_pattern(data)
 
-            # Bullish three line strike
-            if is_bullish_three_line_strike(data):
-                send_message = f"{pair} - 1H : Bullish_Three_Line_Strike: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change:.2f}%, volume_change : {percentage_change_vol:.2f}%"
+            # Handle the detected patterns (print messages for now)
+            if is_dragonfly_doji and current_volume > 20000:
+                send_message = f"{pair} - Dragonfly Doji detected! Close Price: {close_price}"
                 send_slack_notification("#trading_signal", send_message)
-
-            # test marubozu
-            if (is_bullish_marubozu(data) or is_bearish_marubozu(data)) and previous_volume > 50000 and current_volume > previous_volume:
-                send_message = f"{pair} - 1H : Marubozu: Close Price: {close_price}, current_volume : {current_volume}, previous_volume : {previous_volume}, price_change : {percentage_change:.2f}%, volume_change : {percentage_change_vol:.2f}%"
+            if is_longleg_doji and current_volume > 20000:
+                send_message = f"{pair} - LongLeg Doji detected! Close Price: {close_price}"
                 send_slack_notification("#trading_signal", send_message)
-
+            if is_hammer_hanging_man and current_volume > 20000:
+                send_message = f"{pair} - Hammer or Hanging Man detected! Close Price: {close_price}"
+                send_slack_notification("#trading_signal", send_message)
+            if is_inv_hammer and current_volume > 20000:
+                send_message = f"{pair} - Inverted Hammer or Shooting Star detected! Close Price: {close_price}"
+                send_slack_notification("#trading_signal", send_message)
+            if is_spinning_top and current_volume > 20000:
+                send_message = f"{pair} - Spinning Top detected! Close Price: {close_price}"
+                send_slack_notification("#trading_signal", send_message)
+            if is_bull_marubozu and current_volume > 20000:
+                send_message = f"{pair} - Bullish Marubozu detected! Close Price: {close_price}"
+                send_slack_notification("#trading_signal", send_message)
+            if is_bear_marubozu and current_volume > 20000:
+                send_message = f"{pair} - Bearish Marubozu detected! Close Price: {close_price}"
+                send_slack_notification("#trading_signal", send_message)
+            if is_bull_engulf and current_volume > 20000:
+                send_message = f"{pair} - Bullish Engulfing detected! Close Price: {close_price}"
+                send_slack_notification("#trading_signal", send_message)
+            if is_bear_engulf and current_volume > 20000:
+                send_message = f"{pair} - Bearish Engulfing detected! Close Price: {close_price}"
+                send_slack_notification("#trading_signal", send_message)
+            if is_sbull_engulf and current_volume > 20000:
+                send_message = f"{pair} - Strong Bullish Engulfing detected! Close Price: {close_price}"
+                send_slack_notification("#trading_signal", send_message)
+            if is_sbear_engulf and current_volume > 20000:
+                send_message = f"{pair} - Strong Bearish Engulfing detected! Close Price: {close_price}"
+                send_slack_notification("#trading_signal", send_message)
+            if is_bull_harami and current_volume > 20000:
+                send_message = f"{pair} - Bullish Harami detected! Close Price: {close_price}"
+                send_slack_notification("#trading_signal", send_message)
+            if is_bear_harami and current_volume > 20000:
+                send_message = f"{pair} - Bearish Harami detected! Close Price: {close_price}"
+                send_slack_notification("#trading_signal", send_message)
+            if is_dark_cloud_cover and current_volume > 20000:
+                send_message = f"{pair} - Dark Cloud Cover detected! Close Price: {close_price}"
+                send_slack_notification("#trading_signal", send_message)
+            if is_piercing_pattern and current_volume > 20000:
+                send_message = f"{pair} - Piercing Pattern detected! Close Price: {close_price}"
+                send_slack_notification("#trading_signal", send_message)
         else:
             print(f"Failed to fetch data for {pair}. Status code: {response.status_code}")
             return None
