@@ -91,7 +91,7 @@ def run_and_send_to_slack():
 
 
             # URL of the page
-            url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-9-2023.95564/"
+            url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-10-2023.95730/"
 
             # Send a GET request to the URL
             response = requests.get(url)
@@ -121,7 +121,7 @@ def run_and_send_to_slack():
             # Find the maximum value among the unique numbers
             greatest_number = max(unique_numbers_list)
 
-            base_url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-9-2023.95564/"
+            base_url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-10-2023.95730/"
             page = greatest_number
 
             all_numbers_array = []  # List to accumulate all numbers from all articles
