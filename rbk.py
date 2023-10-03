@@ -11,8 +11,8 @@ from collections import Counter
 
 # Load configuration from config.ini
 config = configparser.ConfigParser()
-# config.read("config.ini")
-config.read("/root/BotAPP/config.ini")
+config.read("config.ini")
+# config.read("/root/BotAPP/config.ini")
 
 # Initialize the Slack WebClient with your Slack app's token
 slack_token = config["Slack"]["slack_token"]
@@ -89,6 +89,28 @@ def run_and_send_to_slack():
             output_to_send += f"Lo TOP RBK: " + str(numbers_string) + "\n"
             file.write("Lo TOP RBK: " + str(numbers_string) + "\n")
 
+
+            # Sac xuat Ket qua DB
+            url = "https://ketqua9.net/giai-db-ngay-mai"
+
+            # Send a GET request to the URL
+            response = requests.get(url)
+            content = response.content
+            soup = BeautifulSoup(content, 'html.parser')
+            span_elements = soup.find_all('span', class_='maudo')
+            bo_xo_sac_xuat = []
+            for span in span_elements:
+                number = span.text.strip()
+                bo_xo_sac_xuat.append(number)
+            bo_xo_sac_xuat = bo_xo_sac_xuat[2:]
+            bo_xo_sac_xuat = bo_xo_sac_xuat[:-6]
+
+            sacxuatStr = ",".join(bo_xo_sac_xuat)
+            totalSacxuat = len(bo_xo_sac_xuat)
+
+            print(f"[{totalSacxuat}] : {sacxuatStr} ")
+            output_to_send += f"Xac suat [" + str(totalSacxuat) + "]:" + sacxuatStr + "\n"
+            file.write("Xac suat: [" + str(totalSacxuat) + "] :" + sacxuatStr + "\n")
 
             # URL of the page
             url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-10-2023.95730/"
