@@ -1,4 +1,3 @@
-import schedule
 import time as t  # Rename the time module to 't' to avoid conflicts
 from slack_sdk import WebClient
 import requests
@@ -11,8 +10,8 @@ from collections import Counter
 
 # Load configuration from config.ini
 config = configparser.ConfigParser()
-config.read("config.ini")
-# config.read("/root/BotAPP/config.ini")
+# config.read("config.ini")
+config.read("/root/BotAPP/config.ini")
 
 # Initialize the Slack WebClient with your Slack app's token
 slack_token = config["Slack"]["slack_token"]
@@ -23,7 +22,6 @@ slack_client = WebClient(token=slack_token)
 message_content = ""
 
 def send_to_slack(message):
-    print("Success send to slack " + message + "\n")
     slack_client.chat_postMessage(channel=slack_channel, text=message)
 
 
@@ -43,8 +41,7 @@ def run_and_send_to_slack():
                 for row in rows[1:]:
                     cells = row.find_all("td")
 
-                    if len(cells) == 12:  # Đảm bảo rằng có đúng 8 ô dữ liệu
-                        # Trích xuất dữ liệu từ mỗi ô
+                    if len(cells) == 12:
                         symbol = cells[1].text.strip()
                         price = cells[2].text
                         change = cells[3].text
@@ -53,7 +50,6 @@ def run_and_send_to_slack():
                         volume_10D = cells[6].text
                         volume_10ratio = float(cells[7].text)
 
-                        # Tạo đối tượng từ dữ liệu và thêm vào danh sách
                         data_obj = {
                             "Symbol": symbol,
                             "Price": price,
@@ -64,14 +60,10 @@ def run_and_send_to_slack():
                             "volume_10ratio": volume_10ratio
                         }
                         data_list.append(data_obj)
-
-                filtered_data = [item for item in data_list if item['volume_10ratio'] > 1.1 and int(
-                    item['volume_10D'].replace(',', '')) > 1000000]
-
+                filtered_data = [item for item in data_list if item['volume_10ratio'] > 1.1 and int(item['volume_10D'].replace(',', '')) > 1000000]
                 for item in filtered_data:
-                    item_string = f"Symbol: {item['Symbol']}, Price: {item['Price']}, Change: {item['Change']}, Change_Percent: {item['Change_Percent']}, volume: {item['volume']}, volume_10D: {item['volume_10D']}, vol_ratio: {item['volume_10ratio']}\n"
+                    item_string = f"{item['Symbol']} - Price: {item['Price']}, Change: {item['Change']}, Change_Percent: {item['Change_Percent']}, volume: {item['volume']}, volume_10D: {item['volume_10D']}, vol_ratio: {item['volume_10ratio']}\n"
                     output_to_send += item_string
-
             else:
                 output_to_send += "Can not found class 'table_content' \n"
         else:
@@ -80,6 +72,4 @@ def run_and_send_to_slack():
     except Exception as e:
         error_message = f"An error occurred: {e}"
         send_to_slack(error_message)
-
-
 run_and_send_to_slack()
