@@ -3,9 +3,10 @@ import requests
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# Đường dẫn đến tệp JSON của bạn
+# Đường dẫn đến tệp JSON của bạn và khóa bảng tính
 credentials = ServiceAccountCredentials.from_json_keyfile_name(
-    'KQ.apps.googleusercontent.com.json', ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive'])
+    'KQ.json', ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive'])
+spreadsheet_key = '1F5iD6PddUHOR3ZIvf1LkEuRjMHwzmF5kp71-WXAVWI8'
 
 # Xác thực với Google Sheets API
 gc = gspread.authorize(credentials)
@@ -13,7 +14,6 @@ gc = gspread.authorize(credentials)
 # URL of the page
 url = "https://ketqua9.net/so-ket-qua-truyen-thong"
 
-# Send a GET request to the URL
 try:
     response = requests.get(url)
     response.raise_for_status()  # Nếu gặp lỗi HTTP, raise lên
@@ -23,18 +23,23 @@ try:
     soup = BeautifulSoup(content, 'html.parser')
 
     # Find elements with the specified tag and class
-    div_results = soup.find_all('div', class_='result_div')
+    result_divs = soup.find_all('div', class_='result_div')
 
-    # Mở một bảng tính đã tồn tại bằng tên
-    worksheet = gc.open('Tên Bảng tính').sheet1
+    # Mở một bảng tính đã tồn tại bằng khóa bảng tính
+    worksheet = gc.open_by_key(spreadsheet_key).sheet1
 
-    for result in div_results:
+    for result in result_divs:
         result_date = result.find("span", id="result_date").text
-        special_number = result.select_one("div.chu30.maudo").text
-
-        # Lưu giá trị special_number vào ô cuối cùng (theo một quy tắc cụ thể)
-        last_row = len(worksheet.get_all_values()) + 1
-        worksheet.update(f'A{last_row}', special_number)
+        latest_special_number = result.select_one("div.chu30.maudo")
+        
+        if latest_special_number:
+            latest_special_number = latest_special_number.text
+            # Kiểm tra xem giá trị mới có khác với giá trị cuối cùng không trước khi cập nhật
+            if worksheet.acell(f'A{worksheet.row_count}').value != latest_special_number:
+                last_row = len(worksheet.get_all_values()) + 1
+                worksheet.update(f'A{last_row}', latest_special_number)
+        else:
+            print("Không tìm thấy giá trị mới.")
 
 except requests.exceptions.RequestException as e:
     print(f"Error: {e}")

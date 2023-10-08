@@ -1,0 +1,14 @@
+{
+    "type": "service_account",
+    "project_id": "seismic-bucksaw-397023",
+    "private_key_id": "5691ab330dc25b8fba368ee97e567535afa218bd",
+    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDP0p3KN1KeSwBG\nvdlJQDpl0HwM7BemtY+eZFovl9DzJhn0YuFtS/hnTKzof4L51ru1rHVTDWymtffb\nHEJQrCLvk6gq+V+iRAETDmCkxgEbr2B/ZKBNr/6qi0v4zrsPAntLtrgzn/d9ZmRZ\noHxQEe1gpPl9KM5dv0IMu46nRmIQjdNaC+6YpPHo+hv1uBcJADloLel4Ja4PZTiB\n8+x1ISb3BYzc1HupAA2AsK6yTcGcMqe+mgIKTdph9MTRp+xVx+ywwVrGD9Z4wm5V\nuQJwibzpFVVOH86GVkw/q8i7q84klVAXZAfQqRJlcLUmFxZrtbJx3/72hXtI02FU\nJDw0x/8jAgMBAAECggEAZNd9kkha8g1RooHvpAAi9hF+iCSta0rRWBm4uzxO+xUj\nZfbvDMJe0/0cL6rj6og8SDDZM0Yh0RkeHjdtpEiKoTbEVKnxskKOROlmkr2zfvQP\n/nDc6iV6jNWPtTjXArcBDeGpKv+1rycWjXj2qUGxrgIPP6Cj1lB+Y8BEvb1Ey2Ot\nsvh9Rr/jmD4T6peB3i1tr4Y+qIREyLIcmBo0uIfkTgsG4t74kLBVsHmbDQ6VBSe6\nu643+Hs/aHMGDtgCJWaDss5odwVw92nsaUaY+1FdzJbevdgsLBD3AVBi6PRl8h2w\nmqs32kTnuQd9FHIn27NMMH5Dn6EUJQHhhXP40mwwuQKBgQD6L+Qberwii2lwgOvR\nfznQNjm2ObmMI/cNLmxHsxT5nwff+FqJcECOMTFN+gg7apTQM4nkAUvMi3us21L+\nEN9TOc2xyrROL28V8WbBcU/o/5djAOYKokClpiyxoIqtei+lJrCLjm2+1LKyN+hX\nuqmqMspmeZlhVRKHGsGCgjdlmwKBgQDUpr4m4pozgTbHsu8VwkLFdW5fVB5ExvnV\nabfAwCitFamqBwZewc2keMO1JRS0BYknZM0BdqVTKAevv+VW0EziRqlxdt1B2TQU\nayPGKOtF6kiXWVJdzwIRcH9qG9TRD6vjQ7dRLaEVu4DNDAfiWd7Jeg1nVZqAobGL\ndmPYnn/pGQKBgAdfH957aE2wQ+QPuGMM15w97MdkvgXWDXJy+rfGHAka2XWM8MX5\n670E0AoXIuT1R/s2eYqhSyV0uqkmMTTRNHNUUa46ZcOj/CbuXPO4Lf2UglZlcWHA\n1BzNX6XAMDXaUssP78W85Zjo1XcQ1KS5GESuiG4qiQ1oH0qhzC/XPGCfAoGAYT3y\nvHNpEl5nP4DKpgeUYxllJICh6s+WlYnndmQo9aVvVYoq1pAHSsvSqvZO9leFtZb5\nzE6GIXWvtiWpaT6NufeYKoOxgBgkIaYw0MALfog5M8SrzqwIBRONoGcjtYpWDvH7\nVUrpW7fHmXyD6nUwVK/Ui0lxAptuRhkYZYltcpkCgYEA3n6T/TwL3gcDipVeeofq\nHV1mAPpNtRRA8x7BSdGQyCVNJQC6D5QI4E8DoLUl0qnEL+F77OqIerocSsGBhAt7\n9PHsbvJn4DgHOUV5+MUBsutkKh9Svp/U7IA7VUVzsK/2Y8Chnhbalsh/+sjsNEEC\ng6JzJBr0PmwqZndl+uUqigQ=\n-----END PRIVATE KEY-----\n",
+    "client_email": "kq-summary@seismic-bucksaw-397023.iam.gserviceaccount.com",
+    "client_id": "106318162880879097960",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/kq-summary%40seismic-bucksaw-397023.iam.gserviceaccount.com",
+    "universe_domain": "googleapis.com"
+  }
+  
