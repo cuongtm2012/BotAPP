@@ -35,6 +35,7 @@ try:
     worksheet.update('A1', 'Date')
     worksheet.update('B1', 'KQDB')
     worksheet.update('C1', 'RBK_Cau_DB')
+    worksheet.update('D1', 'RBK_Cau_STT')
     set_frozen(worksheet, rows=1)
 
     row = 2
@@ -66,6 +67,7 @@ try:
             
             if special_number[-2:] in rbk_cau_db:
                 rbk_cau_db = rbk_cau_db.replace(special_number[-2:], f'<<<{special_number[-2:]}>>>')
+                worksheet.update(f'D{row}', 'OK')
             worksheet.update(f'C{row}', rbk_cau_db)
         else:
             print(f"Không thể lấy dữ liệu từ {get_cau_rbk_url}. Mã trạng thái: {rbk_response.status_code}")
