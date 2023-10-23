@@ -322,10 +322,10 @@ def run_and_send_to_slack():
                 numbers = grouped_numbers[count]
                 numbers.sort(key=lambda num: number_appearing_time.get(num, 0))  # Sort by appearing time
                 numbers_text = ', '.join(numbers)
-                output_to_send += f"Numbers appearing {count} times: {numbers_text} ,\n"
+                output_to_send += f"{count} times: {numbers_text} ,\n"
 
                 with open("0x_numbers.txt", "a", encoding="utf-8") as file:
-                    file.write(f"Numbers appearing {count} times: {numbers_text} ,\n")
+                    file.write(f"{count} times: {numbers_text} ,\n")
 
             # Convert the set of unique 0x numbers into a sorted list
             all_0x_numbers_list = sorted(list(all_0x_numbers_set))
@@ -349,8 +349,7 @@ def run_and_send_to_slack():
             all_numbers_00_to_99 = list(range(100))
 
             # Find the numbers that are not in all_0x_numbers_int_set
-            missing_numbers = [
-                str(num) for num in all_numbers_00_to_99 if num not in all_0x_numbers_int_set]
+            missing_numbers = [str(num) for num in all_numbers_00_to_99 if num not in all_0x_numbers_int_set]
             # Remove empty string ('') from the list
             missing_numbers_list = [num for num in missing_numbers if num != '']
 

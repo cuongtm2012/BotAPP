@@ -1,3 +1,4 @@
+import time
 from bs4 import BeautifulSoup
 import requests
 import gspread
@@ -12,7 +13,7 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name(
 gc = gspread.authorize(credentials)
 
 # URL của trang web
-url = "https://ketqua9.net/so-ket-qua-truyen-thong"
+url = "https://ketqua9.net/so-ket-qua-truyen-thong/90"
 
 # Gửi yêu cầu GET đến URL
 try:
@@ -48,8 +49,10 @@ try:
         day, month, year = formatted_date.split('-')
         # Tạo URL get_cau_rbk_url dựa trên formatted_date
         get_cau_rbk_url = f"https://rongbachkim.com/soicau.html?ngay={day}/{month}/{year}&limit=1&exactlimit=0&lon=1&nhay=1&db=1"
-
+        worksheet.update(f'A{row}', formatted_date)
+        worksheet.update(f'B{row}', special_number)
         # Gửi yêu cầu GET đến trang Rong Bach Kim để lấy RBK_Cau_DB
+        time.sleep(2)
         rbk_response = requests.get(get_cau_rbk_url)
         if rbk_response.status_code == 200:
             rbk_soup = BeautifulSoup(rbk_response.content, "html.parser")
@@ -68,14 +71,11 @@ try:
             if special_number[-2:] in rbk_cau_db:
                 rbk_cau_db = rbk_cau_db.replace(special_number[-2:], f'<<<{special_number[-2:]}>>>')
                 worksheet.update(f'D{row}', 'OK')
+            else :
+                worksheet.update(f'D{row}', '')
             worksheet.update(f'C{row}', rbk_cau_db)
         else:
-            print(f"Không thể lấy dữ liệu từ {get_cau_rbk_url}. Mã trạng thái: {rbk_response.status_code}")
-
-        worksheet.update(f'A{row}', formatted_date)
-        worksheet.update(f'B{row}', special_number)
-
+            print(f"Can not get data from {get_cau_rbk_url}. Error Code: {rbk_response.status_code}")
         row += 1
-
 except requests.exceptions.RequestException as e:
-    print(f"Lỗi: {e}")
+    print(f"Error: {e}")
