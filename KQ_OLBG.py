@@ -9,6 +9,7 @@ url = "https://www.olbg.com/betting-tips/Football/1"
 # Tải nội dung của trang web
 response = requests.get(url)
 
+matches = []
 # Sử dụng BeautifulSoup để phân tích cú pháp HTML
 soup = BeautifulSoup(response.text, "html.parser")
 
@@ -48,11 +49,22 @@ for div in tips_divs:
                         tips_info = li.find("div", class_="rw tips")
                         tip_accuracy = tips_info.find("b", class_="h-ellipsis").text.strip()
                         
-                        print("Match:", match_info_elem.text.strip())
-                        print("League:", league)
-                        print("Date and Time (GMT+7):", formatted_date_time)
-                        print("Selection:", selection)
-                        print("Tip Accuracy:", tip_accuracy)
-                        print()
-        else:
-            print("N/A")
+                        matches.append({
+                            "Match": match_info_elem.text.strip(),
+                            "League": league,
+                            "Date and Time (GMT+7)": formatted_date_time,
+                            "Selection": selection,
+                            "Tip Accuracy": tip_accuracy
+                        })
+
+
+sorted_matches = sorted(matches, key=lambda x: x["Date and Time (GMT+7)"])
+
+# In thông tin các trận đấu đã sắp xếp
+for match in sorted_matches:
+    print("Match:", match["Match"])
+    print("League:", match["League"])
+    print("Date and Time (GMT+7):", match["Date and Time (GMT+7)"])
+    print("Selection:", match["Selection"])
+    print("Tip Accuracy:", match["Tip Accuracy"])
+    print()
