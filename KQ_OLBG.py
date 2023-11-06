@@ -33,6 +33,7 @@ try:
 
     response = requests.get(url)
 
+    existing_data = worksheet.get_all_records()
     matches = []
     # Sử dụng BeautifulSoup để phân tích cú pháp HTML
     soup = BeautifulSoup(response.text, "html.parser")
@@ -73,24 +74,21 @@ try:
                             tips_info = li.find("div", class_="rw tips")
                             tip_accuracy = tips_info.find("b", class_="h-ellipsis").text.strip()
                             
-                            matches.append({
-                                "Match": match_info_elem.text.strip(),
-                                "League": league,
+                            new_data = {
                                 "Date_Time": formatted_date_time,
+                                "League": league,
+                                "Match": match_info_elem.text.strip(),
                                 "Selection": selection,
                                 "Tip_Accuracy": tip_accuracy
-                            })
+                            }
+
+                            # Kiểm tra xem dữ liệu mới đã tồn tại trong dữ liệu hiện có chưa
+                            if new_data not in existing_data:
+                                existing_data.append(new_data)
     # Dữ liệu bạn muốn ghi
     data = []
-    sorted_matches = sorted(matches, key=lambda x: x["Date_Time"])
+    sorted_matches = sorted(existing_data, key=lambda x: x["Date_Time"])
     for match in sorted_matches:
-        print("Match:", match["Match"])
-        print("League:", match["League"])
-        print("Date_Time:", match["Date_Time"])
-        print("Selection:", match["Selection"])
-        print("Tip_Accuracy:", match["Tip_Accuracy"])
-        print()
-        
         data.append([match["Date_Time"], match["League"], match["Match"], match["Selection"], match["Tip_Accuracy"]])
         start_row = 2
         end_row = start_row + len(data) - 1
