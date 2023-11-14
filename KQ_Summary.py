@@ -4,6 +4,8 @@ import requests
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from gspread_formatting import set_frozen
+import redis
+from datetime import datetime
 
 # Đường dẫn đến tệp JSON của bạn
 credentials = ServiceAccountCredentials.from_json_keyfile_name(
@@ -37,6 +39,8 @@ try:
     worksheet.update('B1', 'KQDB')
     worksheet.update('C1', 'RBK_Cau_DB')
     worksheet.update('D1', 'RBK_Cau_STT')
+    worksheet.update('E1', 'KQ_SX')
+    worksheet.update('F1', 'KQ_SX_STT')
     set_frozen(worksheet, rows=1)
 
     row = 2
@@ -51,6 +55,7 @@ try:
         get_cau_rbk_url = f"https://rongbachkim.com/soicau.html?ngay={day}/{month}/{year}&limit=1&exactlimit=0&lon=1&nhay=1&db=1"
         worksheet.update(f'A{row}', formatted_date)
         worksheet.update(f'B{row}', special_number)
+
         # Gửi yêu cầu GET đến trang Rong Bach Kim để lấy RBK_Cau_DB
         time.sleep(2)
         rbk_response = requests.get(get_cau_rbk_url)
@@ -74,8 +79,20 @@ try:
             else :
                 worksheet.update(f'D{row}', '')
             worksheet.update(f'C{row}', rbk_cau_db)
+            
+            if sacxuatStr is not None:
+                if special_number[-2:] in sacxuatStr:
+                    sacxuatStr = sacxuatStr.replace(special_number[-2:], f'<<<{special_number[-2:]}>>>')
+                    worksheet.update(f'F{row}', 'OK')
+                else :
+                    worksheet.update(f'F{row}', '')
+            else :
+                print("sacxuatStr is Null")
+            worksheet.update(f'E{row}', sacxuatStr)
         else:
             print(f"Can not get data from {get_cau_rbk_url}. Error Code: {rbk_response.status_code}")
         row += 1
 except requests.exceptions.RequestException as e:
     print(f"Error: {e}")
+    
+    
