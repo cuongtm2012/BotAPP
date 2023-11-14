@@ -53,7 +53,9 @@ try:
         day, month, year = formatted_date.split('-')
         # Tạo URL get_cau_rbk_url dựa trên formatted_date
         get_cau_rbk_url = f"https://rongbachkim.com/soicau.html?ngay={day}/{month}/{year}&limit=1&exactlimit=0&lon=1&nhay=1&db=1"
-        worksheet.update(f'A{row}', formatted_date)
+        KQ_date = datetime.strptime(formatted_date, "%d-%m-%Y")
+        KQ_date_New = KQ_date.strftime("%Y-%m-%d")
+        worksheet.update(f'A{row}', KQ_date_New)
         worksheet.update(f'B{row}', special_number)
 
         # Gửi yêu cầu GET đến trang Rong Bach Kim để lấy RBK_Cau_DB
@@ -80,15 +82,15 @@ try:
                 worksheet.update(f'D{row}', '')
             worksheet.update(f'C{row}', rbk_cau_db)
             
-            if sacxuatStr is not None:
-                if special_number[-2:] in sacxuatStr:
-                    sacxuatStr = sacxuatStr.replace(special_number[-2:], f'<<<{special_number[-2:]}>>>')
-                    worksheet.update(f'F{row}', 'OK')
-                else :
-                    worksheet.update(f'F{row}', '')
-            else :
-                print("sacxuatStr is Null")
-            worksheet.update(f'E{row}', sacxuatStr)
+            # if sacxuatStr is not None:
+            #     if special_number[-2:] in sacxuatStr:
+            #         sacxuatStr = sacxuatStr.replace(special_number[-2:], f'<<<{special_number[-2:]}>>>')
+            #         worksheet.update(f'F{row}', 'OK')
+            #     else :
+            #         worksheet.update(f'F{row}', '')
+            # else :
+            #     print("sacxuatStr is Null")
+            # worksheet.update(f'E{row}', sacxuatStr)
         else:
             print(f"Can not get data from {get_cau_rbk_url}. Error Code: {rbk_response.status_code}")
         row += 1
