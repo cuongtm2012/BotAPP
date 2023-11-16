@@ -33,14 +33,6 @@ try:
     spreadsheet_id = '1F5iD6PddUHOR3ZIvf1LkEuRjMHwzmF5kp71-WXAVWI8'
     worksheet_name = 'KQ_Sheet'
     worksheet = gc.open_by_key(spreadsheet_id).worksheet(worksheet_name)
-
-    # In tiêu đề cột
-    worksheet.update('A1', 'Date')
-    worksheet.update('B1', 'KQDB')
-    worksheet.update('C1', 'RBK_Cau_DB')
-    worksheet.update('D1', 'RBK_Cau_STT')
-    worksheet.update('E1', 'KQ_SX')
-    worksheet.update('F1', 'KQ_SX_STT')
     set_frozen(worksheet, rows=1)
 
     row = 2
@@ -55,46 +47,30 @@ try:
         get_cau_rbk_url = f"https://rongbachkim.com/soicau.html?ngay={day}/{month}/{year}&limit=1&exactlimit=0&lon=1&nhay=1&db=1"
         KQ_date = datetime.strptime(formatted_date, "%d-%m-%Y")
         KQ_date_New = KQ_date.strftime("%Y-%m-%d")
-        worksheet.update(f'A{row}', KQ_date_New)
-        worksheet.update(f'B{row}', special_number)
+        
+        cell_list = worksheet.findall(KQ_date_New)
+        if cell_list:
+            # Nếu tồn tại, lặp qua các ô để cập nhật giá trị
+            for cell in cell_list:
+                row_number = cell.row
 
-        # Gửi yêu cầu GET đến trang Rong Bach Kim để lấy RBK_Cau_DB
-        time.sleep(2)
-        rbk_response = requests.get(get_cau_rbk_url)
-        if rbk_response.status_code == 200:
-            rbk_soup = BeautifulSoup(rbk_response.content, "html.parser")
-            rbk_a_cau_elements = rbk_soup.find_all("td", class_="col1")
+                # Cập nhật cột B (KQDB) cùng dòng bằng giá trị của special_number
+                worksheet.update_cell(row_number, 2, special_number)
 
-            unique_numbers = []  # Mảng để lưu trữ các số duy nhất
+                # Kiểm tra sự tồn tại của special_number trong cột C(RBK_Cau_DB)
+                rbk_cau_db_cell = worksheet.cell(row_number, 3)
+                if special_number[-2:] in rbk_cau_db_cell.value:
+                    # Nếu tồn tại, bôi đậm và cập nhật cột D(RBK_Cau_STT)
+                    worksheet.format(f'C{row_number}', {'textFormat': {'bold': True}})
+                    worksheet.update_cell(row_number, 4, 'OK')
 
-            for element in rbk_a_cau_elements:
-                value = element.get_text().strip()
-                if value not in unique_numbers:  # Kiểm tra tránh trùng lặp
-                    unique_numbers.append(value)
-
-            # Format lại dữ liệu thành chuỗi cách nhau bằng dấu phẩy
-            rbk_cau_db = ','.join(unique_numbers)
-            
-            if special_number[-2:] in rbk_cau_db:
-                rbk_cau_db = rbk_cau_db.replace(special_number[-2:], f'<<<{special_number[-2:]}>>>')
-                worksheet.update(f'D{row}', 'OK')
-            else :
-                worksheet.update(f'D{row}', '')
-            worksheet.update(f'C{row}', rbk_cau_db)
-            
-            # if sacxuatStr is not None:
-            #     if special_number[-2:] in sacxuatStr:
-            #         sacxuatStr = sacxuatStr.replace(special_number[-2:], f'<<<{special_number[-2:]}>>>')
-            #         worksheet.update(f'F{row}', 'OK')
-            #     else :
-            #         worksheet.update(f'F{row}', '')
-            # else :
-            #     print("sacxuatStr is Null")
-            # worksheet.update(f'E{row}', sacxuatStr)
-        else:
-            print(f"Can not get data from {get_cau_rbk_url}. Error Code: {rbk_response.status_code}")
+                # Kiểm tra sự tồn tại của special_number trong cột E(KQ_SX)
+                kq_sx_cell = worksheet.cell(row_number, 5)
+                if special_number[-2:] in kq_sx_cell.value:
+                    # Nếu tồn tại, bôi đậm và cập nhật cột F(KQ_SX_TT)
+                    worksheet.format(f'E{row_number}', {'textFormat': {'bold': True}})
+                    worksheet.update_cell(row_number, 6, 'OK')
+            break
         row += 1
 except requests.exceptions.RequestException as e:
     print(f"Error: {e}")
-    
-    
