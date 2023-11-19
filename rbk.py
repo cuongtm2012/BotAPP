@@ -1,4 +1,3 @@
-import schedule
 import time as t  # Rename the time module to 't' to avoid conflicts
 from slack_sdk import WebClient
 import requests
@@ -8,15 +7,26 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 import re
 from collections import Counter
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+from gspread_formatting import set_frozen
 
 # Load configuration from config.ini
 config = configparser.ConfigParser()
 # config.read("config.ini")
 config.read("/root/BotAPP/config.ini")
 
+
+# Đường dẫn đến tệp JSON của bạn
+credentials = ServiceAccountCredentials.from_json_keyfile_name(
+    'KQ.json', ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive'])
+
+# Xác thực với Google Sheets API
+gc = gspread.authorize(credentials)
+
 # Initialize the Slack WebClient with your Slack app's token
 slack_token = config["Slack"]["slack_token"]
-slack_channel = "#rbk"
+slack_channel = "#rbk_bot"
 slack_client = WebClient(token=slack_token)
 
 # Define the variable to store message content
@@ -31,9 +41,14 @@ def run_and_send_to_slack():
     output_to_send = ""
     global message_content
     try:
+        # Mở một bảng tính đã tồn tại bằng ID
+        spreadsheet_id = '1F5iD6PddUHOR3ZIvf1LkEuRjMHwzmF5kp71-WXAVWI8'
+        worksheet_name = 'KQ_Sheet'
+        worksheet = gc.open_by_key(spreadsheet_id).worksheet(worksheet_name)
         with open("0x_numbers.txt", "a", encoding="utf-8") as file:
             # Get today's date in the format YYYY-MM-DD
             today_date = datetime.today().strftime('%Y-%m-%d')
+            cau_keo_str = ''
             # Create the URL with the today's date
             url = f"https://rongbachkim.com/soicau.html?ngay={today_date}&limit=1&exactlimit=0&lon=1&nhay=1&db=1"
             response = requests.get(url)
@@ -48,19 +63,19 @@ def run_and_send_to_slack():
                     value = element.get_text().strip()
                     if value not in unique_numbers:  # Check for duplicates
                         unique_numbers.append(value)
-                        formatted_output = ','.join(element.strip("'")
+                        cau_keo_str = ','.join(element.strip("'")
                                                     for element in unique_numbers)
 
-                numbers_list = formatted_output.split(',')
+                numbers_list = cau_keo_str.split(',')
                 # Convert the list of strings into a set to remove duplicates
                 unique_numbers_set = set(numbers_list)
                 # Get the total number of unique numbers
                 total_unique_numbers = len(unique_numbers_set)
                 
                 output_to_send += f"Today Date : {today_date}\n"
-                output_to_send += f"Unique Numbers RBK [{total_unique_numbers}] : {formatted_output}\n"
+                output_to_send += f"Unique Numbers RBK [{total_unique_numbers}] : {cau_keo_str}\n"
                 file.write("Today Date : " + today_date + "\n")
-                file.write("Unique Numbers RBK:" + formatted_output + "\n")           
+                file.write("Unique Numbers RBK:" + cau_keo_str + "\n")   
             else:
                 print(
                     f"Failed to fetch data from {url}. Status code: {response.status_code}")
@@ -110,8 +125,11 @@ def run_and_send_to_slack():
 
             print(f"[{totalSacxuat}] : {sacxuatStr} ")
             output_to_send += f"Xac suat [" + str(totalSacxuat) + "]:" + sacxuatStr + "\n"
-            file.write("Xac suat: [" + str(totalSacxuat) + "] :" + sacxuatStr + "\n")
-
+            file.write("Ngay" + today_date + "Xac suat: [" + str(totalSacxuat) + "] :" + sacxuatStr + "\n")
+            
+            today_data =[today_date, '', cau_keo_str, '', sacxuatStr, '']
+            worksheet.insert_row(today_data, 2)            
+            
             # URL of the page
             url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-11-2023.95901/"
 
@@ -212,8 +230,7 @@ def run_and_send_to_slack():
                                 continue
                             # Extract the text content from the message_content div
                             content_text = message_content.get_text(separator="\n").strip()
-
-                           # Split the content by lines and remove empty lines
+                            # Split the content by lines and remove empty lines
                             lines = [line.strip() for line in content_text.split("\n") if line.strip()]
 
                             # Find the index of the last line that starts with "9x"
@@ -364,6 +381,4 @@ def run_and_send_to_slack():
         print(f"An error occurred: {e} and content is {content_text} and author is {data_author_value}")
         error_message = f"An error occurred: {e}"
         send_to_slack(error_message)
-
-
 run_and_send_to_slack()
