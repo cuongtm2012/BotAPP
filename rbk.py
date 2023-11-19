@@ -13,8 +13,8 @@ from gspread_formatting import set_frozen
 
 # Load configuration from config.ini
 config = configparser.ConfigParser()
-config.read("config.ini")
-# config.read("/root/BotAPP/config.ini")
+# config.read("config.ini")
+config.read("/root/BotAPP/config.ini")
 
 
 # Đường dẫn đến tệp JSON của bạn
@@ -26,7 +26,7 @@ gc = gspread.authorize(credentials)
 
 # Initialize the Slack WebClient with your Slack app's token
 slack_token = config["Slack"]["slack_token"]
-slack_channel = "#rbk"
+slack_channel = "#rbk_bot"
 slack_client = WebClient(token=slack_token)
 
 # Define the variable to store message content
