@@ -161,13 +161,23 @@ def is_bullish_three_line_strike(data):
 def is_bullish_marubozu(data):
     # Check if it's a bullish Marubozu
     candle = data[-1]
-    return candle[3] - candle[2] < 0.001 and candle[1] - candle[0] < 0.001 and candle[4] - candle[0] > 0.001
+    open_price = float(candle[1])
+    high_price = float(candle[2])
+    low_price = float(candle[3])
+    close_price = float(candle[4])
+    
+    return high_price - low_price < 0.001 and open_price - low_price < 0.001 and close_price - open_price > 0.001
 
 
 def is_bearish_marubozu(data):
     # Check if it's a bearish Marubozu
     candle = data[-1]
-    return candle[3] - candle[2] < 0.001 and candle[0] - candle[1] < 0.001 and candle[0] - candle[4] > 0.001
+    open_price = float(candle[1])
+    high_price = float(candle[2])
+    low_price = float(candle[3])
+    close_price = float(candle[4])
+    
+    return close_price - low_price < 0.001 and open_price - close_price < 0.001 and open_price - high_price > 0.001
 
 
 def get_price_1H(pair):
