@@ -16,7 +16,6 @@ config = configparser.ConfigParser()
 # config.read("config.ini")
 config.read("/root/BotAPP/config.ini")
 
-
 # Đường dẫn đến tệp JSON của bạn
 credentials = ServiceAccountCredentials.from_json_keyfile_name(
     'KQ.json', ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive'])
@@ -35,7 +34,6 @@ message_content = ""
 # Function to send a message to Slack
 def send_to_slack(message):
     slack_client.chat_postMessage(channel=slack_channel, text=message)
-
 
 def run_and_send_to_slack():
     output_to_send = ""
@@ -131,7 +129,7 @@ def run_and_send_to_slack():
             worksheet.insert_row(today_data, 2)            
             
             # URL of the page
-            url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-11-2023.95901/"
+            url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-12-2023.96065/"
 
             # Send a GET request to the URL
             response = requests.get(url)
