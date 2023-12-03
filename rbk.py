@@ -159,7 +159,7 @@ def run_and_send_to_slack():
             # Find the maximum value among the unique numbers
             greatest_number = max(unique_numbers_list)
 
-            base_url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-11-2023.95901/"
+            base_url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-12-2023.96065/"
             page = greatest_number
 
             all_numbers_array = []  # List to accumulate all numbers from all articles
@@ -213,7 +213,7 @@ def run_and_send_to_slack():
                             
                             # Calculate today's date and time (18:30)
                             today_date = datetime.now() - timedelta(days=0)
-                            full_today_date = today_date.replace(hour=18, minute=30)
+                            full_today_date = today_date.replace(hour=12, minute=30)
                             
                                 # Calculate yesterday's date and time (18:30)
                             yesterday_two = datetime.now() - timedelta(days=2)
