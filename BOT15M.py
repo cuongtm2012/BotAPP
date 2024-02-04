@@ -17,7 +17,7 @@ import logging
 # Load configuration from config.ini
 config = configparser.ConfigParser()
 # config.read("config.ini")
-config.read("/home/ubuntu/BotAPP/config.ini")
+config.read("/root/BotAPP/config.ini")
 
 # Replace 'YOUR_SLACK_API_TOKEN' with your actual Slack API token
 slack_token = config["Slack"]["slack_token"]
