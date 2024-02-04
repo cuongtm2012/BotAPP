@@ -14,7 +14,7 @@ from gspread_formatting import set_frozen
 # Load configuration from config.ini
 config = configparser.ConfigParser()
 # config.read("config.ini")
-config.read("/home/ubuntu/BotAPP/config.ini")
+config.read("/root/BotAPP/config.ini")
 
 # Đường dẫn đến tệp JSON của bạn
 credentials = ServiceAccountCredentials.from_json_keyfile_name(
