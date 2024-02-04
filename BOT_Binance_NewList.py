@@ -83,10 +83,6 @@ def check_for_updates():
                 else:
                     print(f'Bài viết "{title}" đã tồn tại trong cache hoặc không phải là bài viết của ngày hiện tại. Không gửi email thông báo.')
 
-# Lên lịch kiểm tra cập nhật theo định kỳ (ví dụ: mỗi 1 giờ)
-schedule.every(1).hours.do(check_for_updates)
-
 while True:
-    schedule.run_pending()
-    # check_for_updates()
+    check_for_updates()
     time.sleep(1)
