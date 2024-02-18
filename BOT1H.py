@@ -1,12 +1,7 @@
 import time
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
-from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
 import configparser
-import pandas as pd
-from ta.momentum import RSIIndicator
-from ta.trend import MACD
 import requests
 import logging
 
@@ -91,61 +86,33 @@ def is_bearish_three_line_strike(data):
     if len(data) < 5:
         return False
 
-    # Extract OHLC data for the last five candles
     candle1, candle2, candle3, candle4, candle5 = data[-5:]
 
-    # Check if candle1 is a long green (bullish) candle
-    if float(candle1[4]) <= float(candle1[1]):
-        return False
+    if float(candle1[4]) <= float(candle1[1]) and \
+       float(candle2[4]) > float(candle2[1]) and float(candle2[1]) >= float(candle1[1]) and float(candle2[4]) <= float(candle1[4]) and \
+       float(candle3[4]) > float(candle3[1]) and float(candle3[1]) < min(float(candle1[1]), float(candle2[1])) and float(candle3[4]) < min(float(candle1[4]), float(candle2[4])) and \
+       float(candle4[4]) > float(candle4[1]) and float(candle4[1]) < float(candle3[4]) and float(candle4[4]) < float(candle3[1]) and \
+       float(candle5[4]) <= float(candle5[1]):
+        return True
 
-    # Check if candle2 is a bearish candle opening and closing within candle1
-    if not (
-        float(candle2[4]) > float(candle2[1])
-        and float(candle2[1]) >= float(candle1[1])
-        and float(candle2[4]) <= float(candle1[4])
-    ):
-        return False
-
-    # Check if candle3 is a bearish candle opening below the low of candle2 and closing lower than the low of candle1
-    if not (
-        float(candle3[4]) > float(candle3[1])
-        and float(candle3[1]) < min(float(candle1[1]), float(candle2[1]))
-        and float(candle3[4]) < min(float(candle1[4]), float(candle2[4]))
-    ):
-        return False
-
-    # Check if candle4 is a bearish candle continuing the downtrend
-    if not (
-        float(candle4[4]) > float(candle4[1])
-        and float(candle4[1]) < float(candle3[4])
-        and float(candle4[4]) < float(candle3[1])
-    ):
-        return False
-
-    # Check if candle5 is a bearish candle continuing the downtrend
-    if float(candle5[4]) <= float(candle5[1]):
-        return False
-
-    return True
+    return False
 
 
 def is_bullish_three_line_strike(data):
-    # Check if there are at least 4 candles (3 bearish + 1 bullish)
     if len(data) < 4:
         return False
 
     # Check if the last three candles are bearish
-    if not all(candle[4] < candle[1] for candle in data[-3:]):
+    if any(candle[4] >= candle[1] for candle in data[-3:]):
         return False
 
+    fourth_candle, third_bearish_candle, fifth_candle = data[-4], data[-3], data[-1]
+
     # Check if the fourth candle is bullish
-    fourth_candle = data[-4]
-    if fourth_candle[4] > fourth_candle[1]:
+    if fourth_candle[4] <= fourth_candle[1]:
         return False
 
     # Check if the opening price of the fifth candle is higher than the low of the third bearish candle
-    third_bearish_candle = data[-3]
-    fifth_candle = data[-1]
     if fifth_candle[1] <= third_bearish_candle[3]:
         return False
 
@@ -159,24 +126,21 @@ def is_bullish_three_line_strike(data):
 
 
 def is_bullish_marubozu(data):
-    # Check if it's a bullish Marubozu
+    if len(data) < 1:
+        return False
+
     candle = data[-1]
-    open_price = float(candle[1])
-    high_price = float(candle[2])
-    low_price = float(candle[3])
-    close_price = float(candle[4])
-    
+    open_price, high_price, low_price, close_price = map(float, candle[1:5])
+
     return high_price - low_price < 0.001 and open_price - low_price < 0.001 and close_price - open_price > 0.001
 
-
 def is_bearish_marubozu(data):
-    # Check if it's a bearish Marubozu
+    if len(data) < 1:
+        return False
+
     candle = data[-1]
-    open_price = float(candle[1])
-    high_price = float(candle[2])
-    low_price = float(candle[3])
-    close_price = float(candle[4])
-    
+    open_price, high_price, low_price, close_price = map(float, candle[1:5])
+
     return close_price - low_price < 0.001 and open_price - close_price < 0.001 and open_price - high_price > 0.001
 
 
