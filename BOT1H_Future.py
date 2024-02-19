@@ -111,7 +111,7 @@ def get_price(pair):
             percentage_change = ((close_price - open_price) / open_price) * 100
             percentage_change_vol = ((current_volume - previous_volume) / previous_volume) * 100
             if  current_volume > 20000 and percentage_change_vol > 60:
-                send_message = f"{pair} - 1H: - Changed price {percentage_change:.2f}% - - Changed volume {percentage_change_vol:.2f}%!"
+                send_message = f"[{pair} - 1H]\n==> Change_Price ({percentage_change:.2f}%) . Change_Vol ({percentage_change_vol:.2f}%)"
                 send_slack_notification("#volume_up", "VOLUME_UP", pair, send_message)
             try:
                 funding_rate = get_funding_rate(pair)
