@@ -28,6 +28,8 @@ slack_token = config["Slack"]["slack_token"]
 slack_channel = "#rbk_bot"
 slack_client = WebClient(token=slack_token)
 
+url_9x0x = config["forumKQ"]["9x_0x"]
+
 # Define the variable to store message content
 message_content = ""
 
@@ -128,11 +130,8 @@ def run_and_send_to_slack():
             today_data =[today_date, '', cau_keo_str, '', sacxuatStr, '']
             worksheet.insert_row(today_data, 2)            
             
-            # URL of the page
-            url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-12-2023.96065/"
-
             # Send a GET request to the URL
-            response = requests.get(url)
+            response = requests.get(url_9x0x)
             content = response.content
 
             # Parse the HTML content with BeautifulSoup
@@ -159,7 +158,7 @@ def run_and_send_to_slack():
             # Find the maximum value among the unique numbers
             greatest_number = max(unique_numbers_list)
 
-            base_url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-12-2023.96065/"
+            base_url = "https://forumketqua.net/threads/dan-de-xsmb-9x-0x-thang-2-2024.96412/"
             page = greatest_number
 
             all_numbers_array = []  # List to accumulate all numbers from all articles
